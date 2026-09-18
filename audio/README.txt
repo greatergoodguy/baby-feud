@@ -11,4 +11,5 @@ Two folders, checked in this order for each sound:
 File names in either folder (first match wins), .mp3 / .ogg / .wav:
   correct.mp3  (or ding / right)   -> answer revealed
   strike.mp3   (or buzzer / wrong) -> a strike
-  win.mp3      (or applause / fanfare) -> win screen
+  theme.mp3    (or intro) -> plays when the game starts
+  win.mp3      (or applause / fanfare) -> win screen (built-in if absent)

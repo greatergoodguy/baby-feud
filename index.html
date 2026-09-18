@@ -307,7 +307,7 @@ function applyAction(name, args){
   args = args || {};
   let fx = null;
   switch(name){
-    case 'start': S.screen='setup'; break;
+    case 'start': S.screen='setup'; fx='theme'; break;
     case 'setTeams':
       if(args.names){ S.teams[0].name = (args.names[0]||'Team Pink').slice(0,22); S.teams[1].name=(args.names[1]||'Team Blue').slice(0,22); }
       if(args.target){ S.target = Math.max(1, parseInt(args.target)||DEFAULT_TARGET); }
@@ -455,9 +455,9 @@ const Sync = (function(){
    HTML <audio> is used (not fetch) so dropped-in files work even from file://.
 ------------------------------------------ */
 const Snd = (function(){
-  let ctx=null;
-  const clip = {ding:null, buzzer:null, win:null};        // ready HTMLAudioElements
-  const NAMES = {ding:['correct','ding','right'], buzzer:['strike','buzzer','wrong'], win:['win','applause','fanfare']};
+  let ctx=null, themeEl=null;
+  const clip = {ding:null, buzzer:null, win:null, theme:null};   // ready HTMLAudioElements
+  const NAMES = {ding:['correct','ding','right'], buzzer:['strike','buzzer','wrong'], win:['win','applause','fanfare'], theme:['theme','intro']};
   const BASES = ['audio/official/','audio/fallback/'];
   const EXTS  = ['mp3','ogg','wav'];
   function ensure(){ if(!ctx){ try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if(ctx && ctx.state==='suspended') ctx.resume(); }
@@ -503,6 +503,8 @@ const Snd = (function(){
     ding(){ if(playFile('ding')) return; synthDing(); },
     buzzer(){ if(playFile('buzzer')) return; synthBuzzer(); },
     win(){ if(playFile('win')) return; synthWin(); },
+    theme(){ const a=clip.theme; if(!a) return; try{ themeEl=a.cloneNode(true); themeEl.volume=1; themeEl.play().catch(()=>{}); }catch(e){} },
+    stopTheme(){ if(themeEl){ try{ themeEl.pause(); }catch(e){} themeEl=null; } },
     // Called on the first board gesture: resume audio + "warm" the clip elements
     // so later phone-triggered plays are allowed by the browser.
     unlock(){ ensure(); Object.keys(clip).forEach(k=>{ const a=clip[k]; if(!a) return;
@@ -510,9 +512,10 @@ const Snd = (function(){
   };
 })();
 function playFx(fx){
-  if(fx==='ding') Snd.ding();
-  else if(fx==='buzzer') Snd.buzzer();
-  else if(fx==='win'){ Snd.win(); }
+  if(fx==='ding'){ Snd.stopTheme(); Snd.ding(); }
+  else if(fx==='buzzer'){ Snd.stopTheme(); Snd.buzzer(); }
+  else if(fx==='theme'){ Snd.theme(); }
+  else if(fx==='win'){ Snd.stopTheme(); Snd.win(); }
 }
 
 /* ---------------- Board plumbing ---------------- */
@@ -520,6 +523,7 @@ let hasController=false, peerId=null, peerFailed=false, audioArmed=false;
 
 function boardDo(name, args){
   const fx=applyAction(name,args);
+  if(name==='pick') Snd.stopTheme();   // round starting: cut the intro
   if(name==='strike') showStrikeOverlay();
   if(name==='award' && S.winner!=null) burstConfetti();
   playFx(fx);
@@ -943,7 +947,8 @@ function boot(){
     // enable audio on first interaction with the board; look for sound files
     Snd.initFiles();
     const wake=()=>{ Snd.enable(); Snd.unlock(); audioArmed=true;
-      window.removeEventListener('pointerdown',wake); window.removeEventListener('keydown',wake); render(); };
+      window.removeEventListener('pointerdown',wake); window.removeEventListener('keydown',wake);
+      updateAudioBanner(); };   // update just the chip, NOT a full re-render (would eat the click)
     window.addEventListener('pointerdown',wake); window.addEventListener('keydown',wake);
     Sync.initBoard({
       onAction:(name,args)=>{ boardDo(name,args); },
