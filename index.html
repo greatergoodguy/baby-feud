@@ -262,7 +262,7 @@ const ROUNDS = [
     a:[["Electrical outlet",28],["Stove / hot things",23],["Poop / dirty diaper",16],["Glasses / phone",8],["Knives",5],["Fire / candles",5]] },
 ];
 
-const MULTS = [1]; // every round scored at face value (no multiplier); first to target wins
+const MULTS = [1,1,2,3]; // rounds 1&2 single, round 3 double, round 4+ triple; first to target wins
 const DEFAULT_TARGET = 300;
 // Where the phone controller lives. Used for the pairing QR when the board is
 // opened from a local file (file://), which a phone can't open. Set this to your
@@ -582,7 +582,7 @@ function renderBoard(){
   if(S.screen==='menu'){
     el.innerHTML = `
       <div class="topbar">
-        <div class="pill">Round <b>&nbsp;${roundNum()}</b></div>
+        <div class="pill">Round <b>&nbsp;${roundNum()}</b>&nbsp;•&nbsp;<span class="mult">×${curMult()}</span></div>
         <div class="logo logo-sm"><span class="b1">Baby</span> <span class="b2">Feud!</span></div>
         <div class="pill">🎯 Play to ${S.target}</div>
       </div>
@@ -605,7 +605,7 @@ function renderBoard(){
     const R=ROUNDS[S.current];
     el.innerHTML = `
       <div class="topbar">
-        <div class="pill">Round <b>&nbsp;${roundNum()}</b></div>
+        <div class="pill">Round <b>&nbsp;${roundNum()}</b>&nbsp;•&nbsp;<span class="mult">×${curMult()}</span></div>
         <div class="pill">Q${S.current+1} of ${ROUNDS.length}</div>
         <div class="pill">🎯 ${S.target}</div>
       </div>
@@ -617,7 +617,7 @@ function renderBoard(){
         <div class="scores">
           ${teamBox(0)}
           <div class="potbox">
-            <div class="lbl">POT</div>
+            <div class="lbl">POT ×${curMult()}</div>
             <div class="v">${potValue()}</div>
             <div class="strikes">${[0,1,2].map(k=>`<div class="s ${k<S.strikes?'on':''}"></div>`).join('')}</div>
           </div>
@@ -733,7 +733,7 @@ function renderController(){
       <div class="field" style="margin-bottom:14px"><label>Play to (points)</label><input id="ctg" inputmode="numeric" value="${S.target}" style="width:120px"></div>
       <button class="btn gold big" style="width:100%" data-act="c-setTeams">Continue ▶</button></div>`;
   } else if(S.screen==='menu'){
-    body=`<div class="card"><h3>Scores • Round ${roundNum()}</h3>
+    body=`<div class="card"><h3>Scores • Round ${roundNum()} • ×${curMult()}</h3>
         ${ctlScoreLine(0)}${ctlScoreLine(1)}</div>
       <div class="card"><h3>Pick a question</h3><div class="qlist">
         ${ROUNDS.map((r,i)=>`<button class="${S.played.includes(i)?'done':''}" data-act="c-pick" data-arg="${i}"><span class="qn">Q${i+1}</span><span>${esc(r.q)}</span></button>`).join('')}
@@ -744,7 +744,7 @@ function renderController(){
       <div class="card">
         <div class="cq">Q${S.current+1}. ${esc(R.q)}</div>
         <div class="grid2" style="margin-bottom:12px">
-          <div class="big-award" style="background:rgba(0,0,0,.2);border-radius:12px">POT<br><span style="font-family:'Baloo 2';font-size:26px;color:var(--gold)">${potValue()}</span></div>
+          <div class="big-award" style="background:rgba(0,0,0,.2);border-radius:12px">POT ×${curMult()}<br><span style="font-family:'Baloo 2';font-size:26px;color:var(--gold)">${potValue()}</span></div>
           <button class="btn ${S.strikes>=3?'':'ghost'}" data-act="c-strike" style="font-size:18px;background:${S.strikes>0?'rgba(255,77,77,.25)':''}">✗ Strike &nbsp;${'❌'.repeat(S.strikes)||'( 0 )'}</button>
         </div>
         <div class="hintbar">Tap an answer to reveal • tap again to hide</div>
@@ -757,7 +757,7 @@ function renderController(){
           <button class="btn ghost sm" data-act="c-revealAll">Reveal all</button>
         </div>
       </div>
-      <div class="card"><h3>Award the pot (${potValue()} pts)</h3>
+      <div class="card"><h3>Award the pot (×${curMult()} = ${potValue()} pts)</h3>
         <div class="grid2">
           <button class="btn pink big-award" data-act="c-award" data-arg="0">${esc(S.teams[0].name)}<br><span class="small">gets ${potValue()}</span></button>
           <button class="btn blue big-award" data-act="c-award" data-arg="1">${esc(S.teams[1].name)}<br><span class="small">gets ${potValue()}</span></button>
