@@ -198,11 +198,14 @@ button.qcard:hover{border-color:var(--gold); transform:translateY(-2px)}
 .confetti span{position:absolute; top:-40px; font-size:26px; animation:fall linear forwards}
 @keyframes fall{to{transform:translateY(110vh) rotate(540deg); opacity:.9}}
 
-.sndbanner{position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:75;
-  background:linear-gradient(180deg,var(--gold),var(--gold-deep)); color:#3a2c00; font-weight:700;
-  padding:11px 20px; border-radius:999px; box-shadow:var(--shadow); cursor:pointer; font-size:15px;
-  display:flex; align-items:center; gap:8px; border:none; font-family:inherit; animation:sndpulse 1.6s ease-in-out infinite}
-@keyframes sndpulse{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.06)}}
+.sndchip{position:fixed; right:16px; bottom:16px; z-index:75; display:flex; align-items:center; gap:8px;
+  background:rgba(255,255,255,.08); border:1.5px solid rgba(255,255,255,.18); color:#eaf0ff;
+  padding:9px 15px; border-radius:999px; font:600 13px/1 "Fredoka",system-ui,sans-serif; cursor:pointer;
+  box-shadow:var(--shadow); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+  transition:opacity .5s ease, transform .15s ease, background .3s, border-color .3s}
+.sndchip:hover{transform:translateY(-1px); border-color:rgba(255,255,255,.34)}
+.sndchip.on{background:rgba(58,208,122,.18); border-color:rgba(58,208,122,.5); color:#d8ffe8; cursor:default}
+.sndchip.hide{opacity:0; transform:translateY(6px); pointer-events:none}
 .small{font-size:13px; color:var(--dim)}
 a.link{color:var(--gold)}
 @media print{ body{background:#fff; color:#000} .print{display:none} .keyq{border-color:#bbb} .keyq h3 .qn,.keyq li .p{color:#a06d00} }
@@ -698,13 +701,15 @@ renderBoard = function(){
 };
 function updateAudioBanner(){
   if(MODE!=='board') return;
-  let b=document.getElementById('sndbanner');
-  if(audioArmed){ if(b) b.remove(); return; }
-  if(!b){
-    b=document.createElement('button'); b.id='sndbanner'; b.className='sndbanner';
-    b.innerHTML='🔊 Click here once to turn on sound';
-    // the global pointerdown listener arms audio; this is just the visible target
-    document.body.appendChild(b);
+  let c=document.getElementById('sndchip');
+  if(!c){ c=document.createElement('button'); c.id='sndchip'; c.className='sndchip'; document.body.appendChild(c); }
+  if(audioArmed){
+    // subtle confirmation, then quietly fade away
+    if(c.dataset.done) return;
+    c.dataset.done='1'; c.className='sndchip on'; c.innerHTML='🔊 Sound on';
+    setTimeout(()=>{ c.classList.add('hide'); setTimeout(()=>c.remove(), 650); }, 1500);
+  } else {
+    c.className='sndchip'; c.innerHTML='🔈 Tap to enable sound';
   }
 }
 
