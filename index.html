@@ -225,40 +225,41 @@ a.link{color:var(--gold)}
      #key          -> ANSWER KEY (read-only cheat sheet; printable)
    ------------------------------------------------------------
    TO EDIT ANSWERS: just change the ROUNDS array below.
-   Points are shown on the board; they don't need to sum to 100.
+   Points are survey counts out of ~100 people; boards do NOT sum to 100
+   (low/one-off answers are dropped), just like the real show.
    ============================================================ */
 
 const ROUNDS = [
   { q:"Name something parents miss about their pre-baby lives",
-    a:[["Sleep",61],["Free time & freedom",17],["Going out",12],["Sex",8],["Travel",2]] },
+    a:[["Sleep",58],["Free time & freedom",16],["Going out",11],["Sex",7],["Travel",2]] },
   { q:"Name something new parents constantly buy",
-    a:[["Diapers",74],["Clothes",8],["Wipes",7],["Takeout / food",5],["Coffee",3],["Formula",3]] },
+    a:[["Diapers",71],["Clothes",8],["Wipes",7],["Takeout / food",5],["Coffee",3],["Formula",2]] },
   { q:"Name an event parents don't want to miss in their child's life",
-    a:[["First steps",50],["First word",20],["Birth",17],["First smile / laugh",5],["Wedding",4],["Graduation",4]] },
+    a:[["First steps",49],["First word",20],["Birth",16],["First smile / laugh",5],["Wedding",3],["Graduation",3]] },
   { q:"Name something people do to entertain a baby",
-    a:[["Silly faces & noises",32],["Sing",30],["Peekaboo",22],["Dance",7],["Baby talk",6],["Read",3]] },
+    a:[["Silly faces & noises",31],["Sing",29],["Peekaboo",21],["Dance",7],["Baby talk",6],["Read",3]] },
   { q:"Name a good toy for a new baby",
-    a:[["Rattle",55],["Books / contrast cards",13],["Play gym / piano",11],["Stuffed animal",10],["Teether",8],["Mirror",3]] },
+    a:[["Rattle",45],["Books / contrast cards",11],["Play gym / piano",10],["Stuffed animal",9],["Teether",7],["Mirror",2]] },
   { q:"Name something that's cute when a BABY does it, but not an ADULT",
-    a:[["Fart",67],["Poop their pants",13],["Drool",11],["Burp",6],["Cry / scream",3]] },
+    a:[["Fart",60],["Poop their pants",12],["Drool",9],["Burp",5],["Cry / scream",3]] },
   { q:"Name a reason the baby might be crying",
-    a:[["Hungry",68],["Tired",13],["Dirty diaper",9],["Gas",8],["Wants to be held",2]] },
+    a:[["Hungry",65],["Tired",13],["Dirty diaper",9],["Gas",7],["Wants to be held",1]] },
   { q:"Name something new parents try to do when the baby's asleep",
-    a:[["Sleep",45],["Clean / chores",27],["Have sex",10],["Shower",7],["Eat",6],["Watch TV",5]] },
+    a:[["Sleep",44],["Clean / chores",26],["Have sex",10],["Shower",6],["Eat",6],["Watch TV",4]] },
   { q:"Name a place where people hope NOT to have a baby sitting near them",
-    a:[["Airplane",71],["Restaurant",13],["Movie theater",13],["Bar",3]] },
+    a:[["Airplane",68],["Restaurant",12],["Movie theater",12],["Bar",2]] },
   { q:"Name a situation you don't want to be in when your water breaks",
-    a:[["At work",33],["Driving / in traffic",21],["Shopping",14],["In public",12],["On an airplane",10],["Far from home",10]] },
+    a:[["At work",30],["Driving / in traffic",19],["Shopping",13],["In public",11],["On an airplane",9],["Far from home",9]] },
   { q:"The parents just said “Oh no!” — what did the baby do?",
-    a:[["Blowout diaper",51],["Spit up",24],["Fell down",9],["Threw up",8],["Grabbed something",6],["Peed on them",2]] },
+    a:[["Blowout diaper",47],["Spit up",23],["Fell down",9],["Threw up",8],["Grabbed something",6],["Peed on them",2]] },
   { q:"If you could be a baby for a day, name something you'd enjoy most",
-    a:[["Sleep / naps",55],["Being carried & cuddled",29],["No responsibilities",11],["Playing / discovery",3],["Fed on demand",2]] },
+    a:[["Sleep / naps",51],["Being carried & cuddled",27],["No responsibilities",10],["Playing / discovery",2],["Fed on demand",2]] },
   { q:"Name something your partner does that's just like a baby",
-    a:[["Whines / cries",34],["Sleeps a lot",26],["Farts",25],["Messy eater",5],["Snores",5],["Burps",5]] },
+    a:[["Whines / cries",24],["Sleeps a lot",19],["Farts",18],["Messy eater",4],["Snores",4],["Burps",3]] },
   { q:"Name something you would NOT want a babysitter doing on the job",
-    a:[["Drinking",28],["Sleeping",26],["Smoking",19],["On their phone",9],["Having people over",9],["Doing drugs",9]] },
+    a:[["Drinking",24],["Sleeping",23],["Smoking",17],["On their phone",8],["Having people over",8],["Doing drugs",8]] },
   { q:"Name something a baby shouldn't touch, but might try to",
-    a:[["Electrical outlet",33],["Stove / hot things",27],["Poop / dirty diaper",19],["Glasses / phone",10],["Knives",6],["Fire / candles",5]] },
+    a:[["Electrical outlet",28],["Stove / hot things",23],["Poop / dirty diaper",16],["Glasses / phone",8],["Knives",5],["Fire / candles",5]] },
 ];
 
 const MULTS = [1]; // every round scored at face value (no multiplier); first to target wins
