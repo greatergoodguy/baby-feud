@@ -294,6 +294,7 @@ function freshState(){
     pot:0,
     active:null,     // team index "in control" (visual)
     winner:null,
+    tiebreak:false,  // sudden-death face-off (only the #1 answer shows)
     seq:0,           // bumped on strike, to trigger board X animation
   };
 }
@@ -313,12 +314,24 @@ function applyAction(name, args){
       if(args.names){ S.teams[0].name = (args.names[0]||'Team Pink').slice(0,22); S.teams[1].name=(args.names[1]||'Team Blue').slice(0,22); }
       if(args.target){ S.target = Math.max(1, parseInt(args.target)||DEFAULT_TARGET); }
       S.screen='menu'; fx='theme'; break;   // play the intro after teams are set
-    case 'menu': S.screen='menu'; break;
+    case 'menu': S.screen='menu'; S.tiebreak=false; break;
     case 'pick': {
       const i = args.i;
       if(i==null || !ROUNDS[i]) break;
+      S.tiebreak=false;
       S.current = i; S.revealed = ROUNDS[i].a.map(()=>false); S.strikes=0; S.pot=0; S.screen='board';
       break;
+    }
+    case 'tiebreak': {   // sudden-death face-off: a question with only its #1 answer
+      const unplayed = ROUNDS.map((_,i)=>i).filter(i=>!S.played.includes(i));
+      const pool = unplayed.length ? unplayed : ROUNDS.map((_,i)=>i);
+      const i = pool[Math.floor(Math.random()*pool.length)];
+      S.current=i; S.tiebreak=true; S.revealed=[false]; S.strikes=0; S.pot=0; S.active=null; S.screen='board';
+      break;
+    }
+    case 'declareWin': {   // tie-breaker: the team that named the #1 answer wins outright
+      const t=args.team; if(t!==0 && t!==1) break;
+      S.winner=t; S.screen='win'; fx='win'; break;
     }
     case 'reveal': {
       if(S.current==null) break;
@@ -524,9 +537,9 @@ let hasController=false, peerId=null, peerFailed=false, audioArmed=false;
 
 function boardDo(name, args){
   const fx=applyAction(name,args);
-  if(name==='pick') Snd.stopTheme();   // round starting: cut the intro
+  if(name==='pick'||name==='tiebreak') Snd.stopTheme();   // round starting: cut the intro
   if(name==='strike') showStrikeOverlay();
-  if(name==='award' && S.winner!=null) burstConfetti();
+  if((name==='award'||name==='declareWin') && S.winner!=null) burstConfetti();
   playFx(fx);
   Sync.pushState();
   render();
@@ -597,7 +610,40 @@ function renderBoard(){
               <span class="n">Q${i+1}</span><span>${esc(r.q)}</span>
             </button>`).join('')}
         </div>
+        <button class="btn gold sm" data-act="tiebreakLocal" style="margin-top:2px">🏁 Sudden-Death Tie-Breaker</button>
         <div class="status">${pairStatusLine()}</div>
+      </div>`;
+    return;
+  }
+  if(S.screen==='board' && S.tiebreak){
+    const R=ROUNDS[S.current];
+    el.innerHTML = `
+      <div class="topbar">
+        <div class="pill" style="background:rgba(255,210,63,.18);border-color:var(--gold)">🏁 Sudden-Death Face-Off</div>
+        <div class="pill">Top answer only</div>
+        <div class="pill">🏆 Winner takes all</div>
+      </div>
+      <div class="board">
+        <div class="question">${esc(R.q)}</div>
+        <div class="answers" style="width:min(820px,92vw)">${slotHtml(R.a[0],0)}</div>
+        <div class="scores">
+          ${teamBox(0)}
+          <div class="potbox">
+            <div class="lbl">FACE-OFF</div>
+            <div class="v" style="font-size:clamp(20px,3.4vw,30px)">BUZZ!</div>
+            <div class="strikes">${[0,1,2].map(k=>`<div class="s ${k<S.strikes?'on':''}"></div>`).join('')}</div>
+          </div>
+          ${teamBox(1)}
+        </div>
+        <div class="sub" style="max-width:760px">Read the question. First to buzz answers — if they say the #1 answer, their team wins the game. Miss? The other team gets a guess.</div>
+      </div>
+      <div class="ctrlbar">
+        <button class="btn sm ghost" data-act="strikeLocal">✗ Strike (X)</button>
+        <button class="btn sm ghost" data-act="reveal" data-arg="0">Reveal answer</button>
+        <button class="btn sm gold" data-act="tiebreakLocal">🔁 New question</button>
+        <button class="btn sm pink" data-act="declareWinLocal" data-arg="0">🏆 ${esc(S.teams[0].name)} wins</button>
+        <button class="btn sm blue" data-act="declareWinLocal" data-arg="1">🏆 ${esc(S.teams[1].name)} wins</button>
+        <button class="btn sm ghost" data-act="menu">Menu (M)</button>
       </div>`;
     return;
   }
@@ -737,7 +783,31 @@ function renderController(){
         ${ctlScoreLine(0)}${ctlScoreLine(1)}</div>
       <div class="card"><h3>Pick a question</h3><div class="qlist">
         ${ROUNDS.map((r,i)=>`<button class="${S.played.includes(i)?'done':''}" data-act="c-pick" data-arg="${i}"><span class="qn">Q${i+1}</span><span>${esc(r.q)}</span></button>`).join('')}
-      </div></div>`;
+      </div>
+      <button class="btn gold" style="width:100%;margin-top:4px" data-act="c-tiebreak">🏁 Sudden-Death Tie-Breaker</button>
+      </div>`;
+  } else if(S.screen==='board' && S.tiebreak){
+    const R=ROUNDS[S.current];
+    body=`
+      <div class="card" style="border-color:var(--gold)">
+        <h3 style="color:var(--gold)">🏁 Sudden-Death Face-Off</h3>
+        <div class="cq">${esc(R.q)}</div>
+        <div class="hintbar" style="margin:0 0 12px">Read it aloud. First team to buzz answers. Reveal the #1 answer to check.</div>
+        <div class="ans-row ${S.revealed[0]?'rev':''}" data-act="c-toggle" data-arg="0">
+          <div class="an">1</div><div class="at">${esc(R.a[0][0])}</div><div class="ap">${R.a[0][1]}</div>
+        </div>
+        <div class="grid2" style="margin-top:12px">
+          <button class="btn ${S.strikes>0?'':'ghost'}" data-act="c-strike" style="background:${S.strikes>0?'rgba(255,77,77,.25)':''}">✗ Strike ${'❌'.repeat(S.strikes)||''}</button>
+          <button class="btn gold" data-act="c-tiebreak">🔁 New question</button>
+        </div>
+      </div>
+      <div class="card"><h3>Who named the #1 answer? (wins the game)</h3>
+        <div class="grid2">
+          <button class="btn pink big-award" data-act="c-declareWin" data-arg="0">🏆 ${esc(S.teams[0].name)}</button>
+          <button class="btn blue big-award" data-act="c-declareWin" data-arg="1">🏆 ${esc(S.teams[1].name)}</button>
+        </div>
+        <button class="btn ghost sm" style="width:100%;margin-top:10px" data-act="c-menu">◀ Back to questions</button>
+      </div>`;
   } else if(S.screen==='board'){
     const R=ROUNDS[S.current];
     body=`
@@ -857,6 +927,7 @@ function toggleHelp(){
       <div><span class="kbd">R</span> Reveal all remaining</div>
       <div><span class="kbd">[</span> Award pot ▸ ${esc(S.teams[0].name)} &nbsp; <span class="kbd">]</span> Award ▸ ${esc(S.teams[1].name)}</div>
       <div><span class="kbd">M</span> Back to question menu</div>
+      <div><span class="kbd">T</span> Start a sudden-death tie-breaker (from the menu)</div>
       <div><span class="kbd">F</span> Fullscreen &nbsp; <span class="kbd">H</span> This help</div>
     </div>
     <p class="small" style="margin-top:16px">No phone? You can run the whole game from here. Open <b>#key</b> on any device for the answer list.</p>
@@ -884,6 +955,8 @@ document.addEventListener('click', e=>{
       case 'resetStrikes': boardDo('resetStrikes'); break;
       case 'revealAll': boardDo('revealAll'); break;
       case 'awardLocal': boardDo('award',{team:+arg}); break;
+      case 'tiebreakLocal': boardDo('tiebreak'); break;
+      case 'declareWinLocal': boardDo('declareWin',{team:+arg}); break;
       case 'menu': boardDo('menu'); break;
       case 'newGame': boardDo('newGame'); break;
     }
@@ -900,6 +973,8 @@ document.addEventListener('click', e=>{
       case 'c-resetStrikes': send('resetStrikes'); break;
       case 'c-revealAll': send('revealAll'); break;
       case 'c-award': send('award',{team:+arg}); break;
+      case 'c-tiebreak': send('tiebreak'); break;
+      case 'c-declareWin': send('declareWin',{team:+arg}); break;
       case 'c-active': send('setActive',{team:+arg}); break;
       case 'c-adjust': { const [tm,d]=arg.split(':'); send('adjust',{team:+tm, delta:+d}); break; }
       case 'c-menu': send('menu'); break;
@@ -923,10 +998,11 @@ document.addEventListener('keydown', e=>{
     if(k==='x'||k==='X'){ boardDo('strike'); return; }
     if(k==='z'||k==='Z'){ boardDo('resetStrikes'); return; }
     if(k==='r'||k==='R'){ boardDo('revealAll'); return; }
-    if(k==='['){ boardDo('award',{team:0}); return; }
-    if(k===']'){ boardDo('award',{team:1}); return; }
+    if(k==='['){ boardDo(S.tiebreak?'declareWin':'award',{team:0}); return; }
+    if(k===']'){ boardDo(S.tiebreak?'declareWin':'award',{team:1}); return; }
     if(k==='m'||k==='M'){ boardDo('menu'); return; }
   }
+  if(S.screen==='menu' && (k==='t'||k==='T')){ boardDo('tiebreak'); return; }
   if(S.screen==='title' && (k==='Enter'||k===' ')){ boardDo('start'); }
   if(S.screen==='win' && (k==='Enter')){ boardDo('newGame'); }
 });
