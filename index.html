@@ -174,6 +174,7 @@ button.qcard:hover{border-color:var(--gold); transform:translateY(-2px)}
   color:#fff; border-radius:12px; padding:12px; margin-bottom:8px; font-size:15px; display:flex; gap:8px}
 .qlist button .qn{color:var(--gold); font-weight:800}
 .qlist button.done{opacity:.5}
+.sptag{font-size:12px; opacity:.9; white-space:nowrap; margin-left:auto}
 .hintbar{font-size:12px; color:var(--dim); text-align:center; margin-top:6px}
 
 /* help + key */
@@ -232,35 +233,35 @@ a.link{color:var(--gold)}
 
 const ROUNDS = [
   { q:"Name something parents miss about their pre-baby lives",
-    a:[["Sleep",45],["Free time & freedom",19],["Going out",15],["Sex",11],["Travel",5]] },
+    a:[["Sleep",49],["Free time & freedom",20],["Going out",15],["Sex",11],["Travel",5]] },
   { q:"Name something new parents constantly buy",
-    a:[["Diapers",45],["Clothes",11],["Wipes",10],["Takeout / food",8],["Coffee",6],["Formula",4]] },
+    a:[["Diapers",55],["Clothes",12],["Wipes",11],["Takeout / food",9],["Coffee",6],["Formula",5]] },
   { q:"Name an event parents don't want to miss in their child's life",
-    a:[["First steps",45],["First word",25],["Birth",22],["First smile / laugh",10],["Wedding",7],["Graduation",7]] },
+    a:[["First steps",45],["First word",24],["Birth",21],["First smile / laugh",9],["Wedding",6],["Graduation",6]] },
   { q:"Name something people do to entertain a baby",
-    a:[["Silly faces & noises",31],["Sing",30],["Peekaboo",24],["Dance",12],["Baby talk",11],["Read",7]] },
+    a:[["Silly faces & noises",37],["Sing",35],["Peekaboo",28],["Dance",13],["Baby talk",12],["Read",7]] },
   { q:"Name a good toy for a new baby",
-    a:[["Rattle",45],["Books / contrast cards",18],["Play gym / piano",17],["Stuffed animal",16],["Teether",13],["Mirror",6]] },
+    a:[["Rattle",43],["Books / contrast cards",16],["Play gym / piano",15],["Stuffed animal",14],["Teether",12],["Mirror",5]] },
   { q:"Name something that's cute when a BABY does it, but not an ADULT",
-    a:[["Fart",45],["Poop their pants",16],["Drool",13],["Burp",9],["Cry / scream",6]] },
+    a:[["Fart",50],["Poop their pants",16],["Drool",13],["Burp",9],["Cry / scream",6]] },
   { q:"Name a reason the baby might be crying",
-    a:[["Hungry",45],["Tired",16],["Dirty diaper",12],["Gas",11],["Wants to be held",3]] },
+    a:[["Hungry",52],["Tired",17],["Dirty diaper",13],["Gas",11],["Wants to be held",3]] },
   { q:"Name something new parents try to do when the baby's asleep",
-    a:[["Sleep",44],["Clean / chores",31],["Have sex",17],["Shower",12],["Eat",12],["Watch TV",9]] },
+    a:[["Sleep",43],["Clean / chores",30],["Have sex",15],["Shower",11],["Eat",11],["Watch TV",8]] },
   { q:"Name a place where people hope NOT to have a baby sitting near them",
-    a:[["Airplane",45],["Restaurant",15],["Movie theater",15],["Bar",5]] },
+    a:[["Airplane",54],["Restaurant",16],["Movie theater",16],["Bar",5]] },
   { q:"Name a situation you don't want to be in when your water breaks",
-    a:[["At work",30],["Driving / in traffic",22],["Shopping",17],["In public",16],["On an airplane",14],["Far from home",14]] },
+    a:[["At work",37],["Driving / in traffic",27],["Shopping",20],["In public",18],["On an airplane",16],["Far from home",16]] },
   { q:"The parents just said “Oh no!” — what did the baby do?",
-    a:[["Blowout diaper",45],["Spit up",28],["Fell down",15],["Threw up",14],["Grabbed something",12],["Peed on them",6]] },
+    a:[["Blowout diaper",44],["Spit up",27],["Fell down",14],["Threw up",13],["Grabbed something",10],["Peed on them",5]] },
   { q:"If you could be a baby for a day, name something you'd enjoy most",
-    a:[["Sleep / naps",45],["Being carried & cuddled",30],["No responsibilities",16],["Playing / discovery",5],["Fed on demand",5]] },
+    a:[["Sleep / naps",46],["Being carried & cuddled",30],["No responsibilities",15],["Playing / discovery",5],["Fed on demand",5]] },
   { q:"Name something your partner does that's just like a baby",
-    a:[["Whines / cries",24],["Sleeps a lot",21],["Farts",20],["Messy eater",7],["Snores",7],["Burps",6]] },
+    a:[["Whines / cries",34],["Sleeps a lot",29],["Farts",28],["Messy eater",10],["Snores",10],["Burps",8]] },
   { q:"Name something you would NOT want a babysitter doing on the job",
-    a:[["Drinking",24],["Sleeping",23],["Smoking",19],["On their phone",12],["Having people over",12],["Doing drugs",12]] },
+    a:[["Drinking",34],["Sleeping",33],["Smoking",27],["On their phone",16],["Having people over",16],["Doing drugs",16]] },
   { q:"Name something a baby shouldn't touch, but might try to",
-    a:[["Electrical outlet",28],["Stove / hot things",25],["Poop / dirty diaper",19],["Glasses / phone",12],["Knives",9],["Fire / candles",9]] },
+    a:[["Electrical outlet",36],["Stove / hot things",31],["Poop / dirty diaper",24],["Glasses / phone",15],["Knives",11],["Fire / candles",11]] },
 ];
 
 const MULTS = [1,1,2,3]; // rounds 1&2 single, round 3 double, round 4+ triple; first to target wins
@@ -305,6 +306,14 @@ let S = freshState();
 function curMult(){ return MULTS[Math.min(S.roundsPlayed, MULTS.length-1)]; }
 function roundNum(){ return S.roundsPlayed + 1; }
 function potValue(){ return S.pot * curMult(); }
+// How competitive a board is (2nd place vs 1st): a hint for the host when picking.
+function roundSpread(i){
+  const a = ROUNDS[i] && ROUNDS[i].a; if(!a || a.length<2) return null;
+  const r = a[1][1]/a[0][1];
+  if(r>=0.8) return {icon:'🔥', label:'Close race'};
+  if(r>=0.55) return {icon:'👍', label:'Good spread'};
+  return {icon:'🎯', label:'Big #1'};
+}
 
 /* ---------------- Actions (applied on the BOARD only) ---------------- */
 function applyAction(name, args){
@@ -809,8 +818,10 @@ function renderController(){
         <button class="btn ghost" style="width:100%" data-act="c-tiebreak">🏁 Sudden-Death Tie-Breaker</button>
         <div class="hintbar" style="margin-top:8px">The question stays hidden on the TV until you show it.</div>
       </div>
-      <div class="card"><h3>…or pick a specific question (private)</h3><div class="qlist">
-        ${ROUNDS.map((r,i)=>`<button class="${S.played.includes(i)?'done':''}" data-act="c-pick" data-arg="${i}"><span class="qn">Q${i+1}</span><span>${esc(r.q)}</span></button>`).join('')}
+      <div class="card"><h3>…or pick a specific question (private)</h3>
+        <div class="hintbar" style="margin:0 0 10px">🔥 close race &nbsp; 👍 good spread &nbsp; 🎯 big #1</div>
+        <div class="qlist">
+        ${ROUNDS.map((r,i)=>{const sp=roundSpread(i);return `<button class="${S.played.includes(i)?'done':''}" data-act="c-pick" data-arg="${i}" title="${sp?sp.label:''}"><span class="qn">Q${i+1}</span><span>${esc(r.q)}</span>${sp?`<span class="sptag">${sp.icon}</span>`:''}</button>`;}).join('')}
       </div></div>`;
   } else if(S.screen==='board' && S.tiebreak){
     const R=ROUNDS[S.current];
@@ -913,12 +924,13 @@ function renderKey(){
     <div class="keywrap">
       <button class="btn gold sm print" onclick="window.print()">🖨 Print</button>
       <div class="logo logo-sm" style="text-align:center;margin-bottom:6px"><span class="b1">Baby</span> <span class="b2">Feud!</span> — Answer Key</div>
-      <div class="small" style="text-align:center;margin-bottom:18px">Host cheat sheet. Keep this on your phone or print it. The audience never sees this page.</div>
-      ${ROUNDS.map((r,i)=>`
+      <div class="small" style="text-align:center;margin-bottom:8px">Host cheat sheet. Keep this on your phone or print it. The audience never sees this page.</div>
+      <div class="small" style="text-align:center;margin-bottom:18px">🔥 close race &nbsp; 👍 good spread &nbsp; 🎯 big #1</div>
+      ${ROUNDS.map((r,i)=>{const sp=roundSpread(i);return `
         <div class="keyq">
-          <h3><span class="qn">Q${i+1}.</span> ${esc(r.q)}</h3>
+          <h3><span class="qn">Q${i+1}.</span> ${esc(r.q)} ${sp?`<span class="sptag">${sp.icon} ${sp.label}</span>`:''}</h3>
           <ol>${r.a.map(a=>`<li><span>${esc(a[0])}</span><span class="p">${a[1]}</span></li>`).join('')}</ol>
-        </div>`).join('')}
+        </div>`;}).join('')}
     </div>`;
 }
 
