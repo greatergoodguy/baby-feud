@@ -307,11 +307,11 @@ function applyAction(name, args){
   args = args || {};
   let fx = null;
   switch(name){
-    case 'start': S.screen='setup'; fx='theme'; break;
+    case 'start': S.screen='setup'; break;
     case 'setTeams':
       if(args.names){ S.teams[0].name = (args.names[0]||'Team Pink').slice(0,22); S.teams[1].name=(args.names[1]||'Team Blue').slice(0,22); }
       if(args.target){ S.target = Math.max(1, parseInt(args.target)||DEFAULT_TARGET); }
-      S.screen='menu'; break;
+      S.screen='menu'; fx='theme'; break;   // play the intro after teams are set
     case 'menu': S.screen='menu'; break;
     case 'pick': {
       const i = args.i;
