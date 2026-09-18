@@ -1,15 +1,14 @@
-Drop-in sound effects (PUBLIC / committed tier)
-================================================
-Files here REPLACE the built-in synth sounds and DO ship to the public
-GitHub Pages site, so only put clips you're OK hosting publicly
-(royalty-free / CC0 / your own).
+Sound effects
+=============
+Two folders, checked in this order for each sound:
 
-Name them any of these (first match wins), .mp3 / .ogg / .wav:
-  correct.mp3   (or ding.mp3 / right.mp3)   -> played when an answer is revealed
-  strike.mp3    (or buzzer.mp3 / wrong.mp3) -> played on a strike
-  win.mp3       (or applause.mp3 / fanfare.mp3) -> played on the win screen
+  1. official/   -> real Family Feud clips. PRIVATE: gitignored, never pushed.
+                    Used only when running the board from this local copy.
+  2. fallback/   -> royalty-free / CC0 clips. PUBLIC: committed and served on
+                    the live GitHub Pages site.
+  3. (none)      -> the game's built-in synth sounds play.
 
-No files here? The game uses its nice built-in sounds automatically.
-
-For the REAL Family Feud clips (copyright), use the audio/official/ folder
-instead — it is gitignored and never pushed to the public site.
+File names in either folder (first match wins), .mp3 / .ogg / .wav:
+  correct.mp3  (or ding / right)   -> answer revealed
+  strike.mp3   (or buzzer / wrong) -> a strike
+  win.mp3      (or applause / fanfare) -> win screen

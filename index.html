@@ -438,8 +438,10 @@ const Sync = (function(){
 })();
 
 /* ---------------- Sound ----------------
-   Load order for each cue:  audio/official/* (gitignored, real show clips)
-   -> audio/* (your own royalty-free clips) -> built-in synth (always works).
+   Load order for each cue:
+     1. audio/official/*  (gitignored, real show clips — private, local only)
+     2. audio/fallback/*  (committed royalty-free clips — public site uses these)
+     3. built-in synth    (always works)
    Drop-in file names (any one works): correct|ding|right, strike|buzzer|wrong,
    win|applause|fanfare  —  extension .mp3, .ogg or .wav.
    HTML <audio> is used (not fetch) so dropped-in files work even from file://.
@@ -448,7 +450,7 @@ const Snd = (function(){
   let ctx=null;
   const clip = {ding:null, buzzer:null, win:null};        // ready HTMLAudioElements
   const NAMES = {ding:['correct','ding','right'], buzzer:['strike','buzzer','wrong'], win:['win','applause','fanfare']};
-  const BASES = ['audio/official/','audio/'];
+  const BASES = ['audio/official/','audio/fallback/'];
   const EXTS  = ['mp3','ogg','wav'];
   function ensure(){ if(!ctx){ try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if(ctx && ctx.state==='suspended') ctx.resume(); }
 
