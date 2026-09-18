@@ -198,6 +198,11 @@ button.qcard:hover{border-color:var(--gold); transform:translateY(-2px)}
 .confetti span{position:absolute; top:-40px; font-size:26px; animation:fall linear forwards}
 @keyframes fall{to{transform:translateY(110vh) rotate(540deg); opacity:.9}}
 
+.sndbanner{position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:75;
+  background:linear-gradient(180deg,var(--gold),var(--gold-deep)); color:#3a2c00; font-weight:700;
+  padding:11px 20px; border-radius:999px; box-shadow:var(--shadow); cursor:pointer; font-size:15px;
+  display:flex; align-items:center; gap:8px; border:none; font-family:inherit; animation:sndpulse 1.6s ease-in-out infinite}
+@keyframes sndpulse{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.06)}}
 .small{font-size:13px; color:var(--dim)}
 a.link{color:var(--gold)}
 @media print{ body{background:#fff; color:#000} .print{display:none} .keyq{border-color:#bbb} .keyq h3 .qn,.keyq li .p{color:#a06d00} }
@@ -494,7 +499,11 @@ const Snd = (function(){
     initFiles,
     ding(){ if(playFile('ding')) return; synthDing(); },
     buzzer(){ if(playFile('buzzer')) return; synthBuzzer(); },
-    win(){ if(playFile('win')) return; synthWin(); }
+    win(){ if(playFile('win')) return; synthWin(); },
+    // Called on the first board gesture: resume audio + "warm" the clip elements
+    // so later phone-triggered plays are allowed by the browser.
+    unlock(){ ensure(); Object.keys(clip).forEach(k=>{ const a=clip[k]; if(!a) return;
+      try{ a.muted=true; const p=a.play(); if(p&&p.then) p.then(()=>{ a.pause(); a.currentTime=0; a.muted=false; }).catch(()=>{ a.muted=false; }); }catch(e){} }); }
   };
 })();
 function playFx(fx){
@@ -504,7 +513,7 @@ function playFx(fx){
 }
 
 /* ---------------- Board plumbing ---------------- */
-let hasController=false, peerId=null, peerFailed=false;
+let hasController=false, peerId=null, peerFailed=false, audioArmed=false;
 
 function boardDo(name, args){
   const fx=applyAction(name,args);
@@ -685,7 +694,19 @@ renderBoard = function(){
     const center=app().querySelector('.center');
     if(center) renderPairingInto(center);
   }
+  updateAudioBanner();
 };
+function updateAudioBanner(){
+  if(MODE!=='board') return;
+  let b=document.getElementById('sndbanner');
+  if(audioArmed){ if(b) b.remove(); return; }
+  if(!b){
+    b=document.createElement('button'); b.id='sndbanner'; b.className='sndbanner';
+    b.innerHTML='🔊 Click here once to turn on sound';
+    // the global pointerdown listener arms audio; this is just the visible target
+    document.body.appendChild(b);
+  }
+}
 
 /* ---------- CONTROLLER views ---------- */
 function renderController(){
@@ -916,7 +937,8 @@ function boot(){
   if(MODE==='board'){
     // enable audio on first interaction with the board; look for sound files
     Snd.initFiles();
-    const wake=()=>{ Snd.enable(); window.removeEventListener('pointerdown',wake); window.removeEventListener('keydown',wake); };
+    const wake=()=>{ Snd.enable(); Snd.unlock(); audioArmed=true;
+      window.removeEventListener('pointerdown',wake); window.removeEventListener('keydown',wake); render(); };
     window.addEventListener('pointerdown',wake); window.addEventListener('keydown',wake);
     Sync.initBoard({
       onAction:(name,args)=>{ boardDo(name,args); },
