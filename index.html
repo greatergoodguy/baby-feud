@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Baby Feud!</title>
+<meta name="description" content="A baby-shower Family Feud game: clean board on the TV, private host control from your phone." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet" />
+<!-- Pairing libs (only needed for phone control; game works without them) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{
+  --navy:#0b1e4a; --navy2:#12296a; --panel:#16357f; --panel-hi:#1e49b0;
+  --gold:#ffd23f; --gold-deep:#f4b60c;
+  --pink:#ff8fb1; --pink-deep:#e85c86; --blue:#7ec8ff; --blue-deep:#2b8ede;
+  --ink:#0b1226; --white:#ffffff; --dim:#b9c6ef;
+  --good:#3ad07a; --bad:#ff4d4d;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; font-family:"Fredoka",system-ui,sans-serif; color:var(--white);
+  background:
+    radial-gradient(1200px 700px at 50% -10%, #1c3e9e 0%, transparent 60%),
+    radial-gradient(900px 600px at 90% 110%, #29a 0%, transparent 55%),
+    linear-gradient(160deg, #0a1a44 0%, #0b1e4a 55%, #0a1638 100%);
+  background-attachment: fixed;
+  -webkit-font-smoothing:antialiased; overflow-x:hidden;
+}
+button{font-family:inherit; cursor:pointer}
+.wrap{min-height:100dvh; display:flex; flex-direction:column}
+.center{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px 16px; gap:22px; text-align:center}
+
+/* ---------- Branding ---------- */
+.logo{font-family:"Baloo 2",sans-serif; font-weight:800; line-height:.95; letter-spacing:.5px;
+  text-shadow:0 4px 0 var(--gold-deep), 0 10px 24px rgba(0,0,0,.45)}
+.logo .b1{color:var(--pink)} .logo .b2{color:var(--gold)}
+.logo-xl{font-size:clamp(48px, 12vw, 150px)}
+.logo-sm{font-size:clamp(26px, 6vw, 40px)}
+.sub{color:var(--dim); font-size:clamp(15px,2.4vw,22px); max-width:720px}
+.babies{font-size:clamp(30px,7vw,64px); filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}
+
+/* ---------- Buttons ---------- */
+.btn{border:none; border-radius:16px; padding:16px 26px; font-size:clamp(16px,2.4vw,22px); font-weight:600;
+  color:var(--ink); background:linear-gradient(180deg,#fff,#ffe9a6); box-shadow:var(--shadow); transition:transform .08s ease, filter .15s}
+.btn:hover{filter:brightness(1.03)} .btn:active{transform:translateY(2px)}
+.btn.gold{background:linear-gradient(180deg,var(--gold),var(--gold-deep)); color:#3a2c00}
+.btn.pink{background:linear-gradient(180deg,var(--pink),var(--pink-deep)); color:#3a0016}
+.btn.blue{background:linear-gradient(180deg,var(--blue),var(--blue-deep)); color:#00243f}
+.btn.ghost{background:rgba(255,255,255,.08); color:#fff; box-shadow:none; border:1.5px solid rgba(255,255,255,.22)}
+.btn.big{padding:20px 34px; font-size:clamp(18px,3vw,26px)}
+.btn.sm{padding:10px 14px; font-size:15px; border-radius:12px}
+.btn:disabled{opacity:.4; cursor:not-allowed}
+.row{display:flex; gap:12px; flex-wrap:wrap; justify-content:center; align-items:center}
+
+/* ---------- Inputs ---------- */
+.field{display:flex; flex-direction:column; gap:6px; text-align:left}
+.field label{color:var(--dim); font-size:14px; padding-left:6px}
+.field input{font-family:inherit; font-size:20px; padding:14px 16px; border-radius:14px; border:2px solid rgba(255,255,255,.2);
+  background:rgba(255,255,255,.96); color:#12224e; font-weight:600; width:min(340px,80vw)}
+.field input:focus{outline:none; border-color:var(--gold)}
+
+/* ---------- Board layout ---------- */
+.topbar{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px 22px}
+.pill{background:rgba(255,255,255,.08); border:1.5px solid rgba(255,255,255,.16); border-radius:999px;
+  padding:8px 16px; font-weight:600; font-size:clamp(13px,1.8vw,18px); display:flex; align-items:center; gap:8px}
+.pill .mult{color:var(--gold); font-weight:800}
+.board{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:6px 18px 12px; gap:18px}
+.question{font-family:"Baloo 2",sans-serif; font-weight:800; text-align:center; line-height:1.1;
+  font-size:clamp(24px,4.6vw,54px); max-width:1100px; text-shadow:0 3px 0 rgba(0,0,0,.25)}
+.answers{width:min(1000px,94vw); display:grid; gap:12px}
+.slot{position:relative; height:clamp(52px,8.4vh,86px); border-radius:16px; overflow:hidden;
+  background:linear-gradient(180deg,var(--panel-hi),var(--panel)); box-shadow:inset 0 0 0 2px rgba(255,255,255,.10), var(--shadow);
+  display:flex; align-items:center; user-select:none}
+.slot.click{cursor:pointer}
+.slot .num{width:clamp(52px,8vh,86px); flex:none; display:flex; align-items:center; justify-content:center;
+  font-family:"Baloo 2",sans-serif; font-weight:800; font-size:clamp(24px,4.5vh,42px);
+  background:rgba(0,0,0,.18); color:var(--gold)}
+.slot .txt{flex:1; padding:0 18px; font-weight:600; font-size:clamp(18px,3.4vh,34px); text-transform:uppercase; letter-spacing:.5px;
+  opacity:0; transform:translateY(6px); transition:opacity .25s, transform .25s; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.slot .pts{flex:none; min-width:clamp(56px,9vh,92px); text-align:center; font-family:"Baloo 2",sans-serif; font-weight:800;
+  font-size:clamp(22px,4vh,40px); background:rgba(0,0,0,.22); align-self:stretch; display:flex; align-items:center; justify-content:center;
+  color:#fff; opacity:0; transition:opacity .25s}
+.slot.hidden .num-dot{font-size:clamp(22px,4vh,40px); color:rgba(255,255,255,.85)}
+.slot.revealed{background:linear-gradient(180deg,#1f56d6,#1740a8)}
+.slot.revealed .txt{opacity:1; transform:none}
+.slot.revealed .pts{opacity:1}
+.slot.revealed .num{background:rgba(0,0,0,.28)}
+.slot.pop{animation:pop .35s ease}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.02)}100%{transform:scale(1)}}
+
+/* score footer */
+.scores{display:grid; grid-template-columns:1fr auto 1fr; gap:14px; width:min(1000px,94vw); align-items:stretch}
+.team{border-radius:18px; padding:12px 18px; display:flex; flex-direction:column; align-items:center; gap:2px; position:relative;
+  box-shadow:var(--shadow)}
+.team.a{background:linear-gradient(180deg,rgba(255,143,177,.28),rgba(232,92,134,.16)); border:2px solid var(--pink)}
+.team.b{background:linear-gradient(180deg,rgba(126,200,255,.28),rgba(43,142,222,.16)); border:2px solid var(--blue)}
+.team .name{font-size:clamp(15px,2.4vw,24px); font-weight:600; text-transform:uppercase; letter-spacing:.5px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%}
+.team .val{font-family:"Baloo 2",sans-serif; font-weight:800; font-size:clamp(30px,6vw,60px); line-height:1}
+.team.active{box-shadow:0 0 0 4px var(--gold), var(--shadow)}
+.team .tag{position:absolute; top:-12px; background:var(--gold); color:#3a2c00; font-size:11px; font-weight:800;
+  padding:3px 10px; border-radius:999px; letter-spacing:.5px}
+.potbox{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  background:rgba(0,0,0,.22); border-radius:18px; padding:10px 20px; border:2px solid rgba(255,255,255,.14); min-width:120px}
+.potbox .lbl{font-size:12px; color:var(--dim); letter-spacing:2px}
+.potbox .v{font-family:"Baloo 2",sans-serif; font-weight:800; font-size:clamp(26px,5vw,48px); color:var(--gold)}
+.strikes{display:flex; gap:6px; margin-top:4px; min-height:22px}
+.strikes .s{width:20px; height:20px; border-radius:50%; border:2px solid rgba(255,77,77,.5)}
+.strikes .s.on{background:var(--bad); border-color:#fff}
+
+/* strike overlay */
+.overlay-x{position:fixed; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:60}
+.overlay-x .xx{font-family:"Baloo 2",sans-serif; font-weight:800; color:var(--bad); font-size:min(60vh,60vw);
+  text-shadow:0 0 40px rgba(255,0,0,.6); animation:xpop .8s ease forwards}
+@keyframes xpop{0%{transform:scale(.2); opacity:0}25%{transform:scale(1.05); opacity:1}80%{opacity:1}100%{transform:scale(1); opacity:0}}
+
+/* pairing */
+.pair{display:flex; align-items:center; gap:16px; background:rgba(255,255,255,.06); border:1.5px solid rgba(255,255,255,.16);
+  border-radius:18px; padding:14px 18px; max-width:520px}
+.pair .qr{background:#fff; padding:8px; border-radius:12px; line-height:0}
+.pair .qr img,.pair .qr canvas{display:block}
+.pair .txt2{text-align:left; font-size:14px; color:var(--dim)}
+.pair .txt2 b{color:#fff}
+.status{font-size:13px; color:var(--dim)}
+.dot{display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--dim); margin-right:6px}
+.dot.ok{background:var(--good)} .dot.no{background:var(--bad)}
+
+/* control bar (board fallback) */
+.ctrlbar{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; padding:8px 14px 16px}
+.ctrlbar .btn{padding:9px 14px; font-size:14px; border-radius:12px}
+
+/* menu grid */
+.menu{width:min(1100px,94vw); display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px}
+.qcard{text-align:left; background:rgba(255,255,255,.07); border:1.5px solid rgba(255,255,255,.16); border-radius:16px;
+  padding:14px 16px; color:#fff; font-size:16px; font-weight:500; min-height:92px; display:flex; flex-direction:column; gap:6px; position:relative}
+.qcard .n{font-family:"Baloo 2",sans-serif; font-weight:800; color:var(--gold); font-size:14px}
+.qcard.done{opacity:.5}
+.qcard.done::after{content:"✓ played"; position:absolute; top:10px; right:12px; font-size:12px; color:var(--good); font-weight:700}
+button.qcard{cursor:pointer; transition:transform .08s, border-color .15s}
+button.qcard:hover{border-color:var(--gold); transform:translateY(-2px)}
+
+/* ---------- Controller ---------- */
+.ctl{max-width:560px; margin:0 auto; padding:14px 14px 40px}
+.ctl-top{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px}
+.ctl-title{font-family:"Baloo 2",sans-serif; font-weight:800; font-size:22px}
+.ctl-title .b1{color:var(--pink)} .ctl-title .b2{color:var(--gold)}
+.card{background:rgba(255,255,255,.06); border:1.5px solid rgba(255,255,255,.14); border-radius:16px; padding:14px; margin-bottom:12px}
+.card h3{margin:0 0 10px; font-size:14px; color:var(--dim); font-weight:600; letter-spacing:1px; text-transform:uppercase}
+.cq{font-family:"Baloo 2",sans-serif; font-weight:700; font-size:18px; line-height:1.15; margin-bottom:12px}
+.ans-row{display:flex; align-items:center; gap:10px; padding:12px 12px; border-radius:12px; margin-bottom:8px;
+  background:rgba(255,255,255,.05); border:1.5px solid rgba(255,255,255,.12); cursor:pointer; transition:background .12s}
+.ans-row:active{background:rgba(255,255,255,.12)}
+.ans-row .an{width:26px; height:26px; flex:none; border-radius:50%; background:rgba(0,0,0,.25); color:var(--gold);
+  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px}
+.ans-row .at{flex:1; font-weight:600; font-size:17px}
+.ans-row .ap{font-family:"Baloo 2",sans-serif; font-weight:800; font-size:18px; color:#fff}
+.ans-row.rev{background:linear-gradient(180deg,#1f56d6,#1740a8); border-color:#3a6be0}
+.ans-row.rev .at::after{content:" ✓"; color:var(--good)}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.big-award{padding:16px; font-size:17px; border-radius:14px; font-weight:700; text-align:center; line-height:1.2}
+.scoreline{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 0}
+.scoreline .nm{font-weight:700; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.scoreline .sv{font-family:"Baloo 2",sans-serif; font-weight:800; font-size:22px; min-width:52px; text-align:center}
+.stepper{display:flex; gap:6px}
+.stepper button{width:38px; height:38px; border-radius:10px; font-size:20px; font-weight:800; border:none; color:#fff; background:rgba(255,255,255,.12)}
+.qlist button{width:100%; text-align:left; background:rgba(255,255,255,.05); border:1.5px solid rgba(255,255,255,.12);
+  color:#fff; border-radius:12px; padding:12px; margin-bottom:8px; font-size:15px; display:flex; gap:8px}
+.qlist button .qn{color:var(--gold); font-weight:800}
+.qlist button.done{opacity:.5}
+.hintbar{font-size:12px; color:var(--dim); text-align:center; margin-top:6px}
+
+/* help + key */
+.modal{position:fixed; inset:0; background:rgba(3,8,24,.86); z-index:80; display:flex; align-items:center; justify-content:center; padding:20px}
+.modal .box{background:#0f2360; border:1.5px solid rgba(255,255,255,.18); border-radius:20px; padding:24px; max-width:560px; width:100%}
+.modal h2{font-family:"Baloo 2",sans-serif; margin:0 0 14px}
+.kbd{display:inline-block; min-width:26px; text-align:center; background:#fff; color:#12224e; border-radius:7px; padding:2px 8px; font-weight:800; font-size:14px; margin-right:8px}
+.klist{display:grid; grid-template-columns:1fr; gap:8px; font-size:15px}
+.keywrap{max-width:820px; margin:0 auto; padding:24px 16px 60px}
+.keyq{background:rgba(255,255,255,.06); border:1.5px solid rgba(255,255,255,.14); border-radius:14px; padding:14px 16px; margin-bottom:12px; text-align:left}
+.keyq h3{margin:0 0 8px; font-size:17px; font-family:"Baloo 2",sans-serif}
+.keyq h3 .qn{color:var(--gold)}
+.keyq ol{margin:0; padding-left:22px}
+.keyq li{padding:3px 0; font-size:16px; display:flex; justify-content:space-between; gap:12px; list-style:none}
+.keyq li .p{color:var(--gold); font-weight:800; font-family:"Baloo 2",sans-serif}
+.keyq li{counter-increment:a}
+.keyq li::before{content:counter(a) ". "; color:var(--dim); font-weight:700}
+.keyq ol{counter-reset:a}
+.print{position:fixed; top:14px; right:14px}
+
+/* confetti */
+.confetti{position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:70}
+.confetti span{position:absolute; top:-40px; font-size:26px; animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(540deg); opacity:.9}}
+
+.small{font-size:13px; color:var(--dim)}
+a.link{color:var(--gold)}
+@media print{ body{background:#fff; color:#000} .print{display:none} .keyq{border-color:#bbb} .keyq h3 .qn,.keyq li .p{color:#a06d00} }
+</style>
+</head>
+<body>
+<div id="app" class="wrap"></div>
+<div id="fx"></div>
+
+<script>
+/* ============================================================
+   BABY FEUD!  —  single-file Family Feud for a baby shower
+   Modes (by URL hash):
+     (none)        -> BOARD      (show on the TV; owns the game state)
+     #c=<peerId>   -> CONTROLLER (host's phone; pairs to a board)
+     #c            -> CONTROLLER (same-browser test via BroadcastChannel)
+     #key          -> ANSWER KEY (read-only cheat sheet; printable)
+   ------------------------------------------------------------
+   TO EDIT ANSWERS: just change the ROUNDS array below.
+   Points are shown on the board; they don't need to sum to 100.
+   ============================================================ */
+
+const ROUNDS = [
+  { q:"Name something parents miss about their pre-baby lives",
+    a:[["Sleep",61],["Free time & freedom",17],["Going out",12],["Sex",8],["Travel",2]] },
+  { q:"Name something new parents constantly buy",
+    a:[["Diapers",74],["Clothes",8],["Wipes",7],["Takeout / food",5],["Coffee",3],["Formula",3]] },
+  { q:"Name an event parents don't want to miss in their child's life",
+    a:[["First steps",50],["First word",20],["Birth",17],["First smile / laugh",5],["Wedding",4],["Graduation",4]] },
+  { q:"Name something people do to entertain a baby",
+    a:[["Silly faces & noises",32],["Sing",30],["Peekaboo",22],["Dance",7],["Baby talk",6],["Read",3]] },
+  { q:"Name a good toy for a new baby",
+    a:[["Rattle",55],["Books / contrast cards",13],["Play gym / piano",11],["Stuffed animal",10],["Teether",8],["Mirror",3]] },
+  { q:"Name something that's cute when a BABY does it, but not an ADULT",
+    a:[["Fart",67],["Poop their pants",13],["Drool",11],["Burp",6],["Cry / scream",3]] },
+  { q:"Name a reason the baby might be crying",
+    a:[["Hungry",68],["Tired",13],["Dirty diaper",9],["Gas",8],["Wants to be held",2]] },
+  { q:"Name something new parents try to do when the baby's asleep",
+    a:[["Sleep",45],["Clean / chores",27],["Have sex",10],["Shower",7],["Eat",6],["Watch TV",5]] },
+  { q:"Name a place where people hope NOT to have a baby sitting near them",
+    a:[["Airplane",71],["Restaurant",13],["Movie theater",13],["Bar",3]] },
+  { q:"Name a situation you don't want to be in when your water breaks",
+    a:[["At work",33],["Driving / in traffic",21],["Shopping",14],["In public",12],["On an airplane",10],["Far from home",10]] },
+  { q:"The parents just said “Oh no!” — what did the baby do?",
+    a:[["Blowout diaper",51],["Spit up",24],["Fell down",9],["Threw up",8],["Grabbed something",6],["Peed on them",2]] },
+  { q:"If you could be a baby for a day, name something you'd enjoy most",
+    a:[["Sleep / naps",55],["Being carried & cuddled",29],["No responsibilities",11],["Playing / discovery",3],["Fed on demand",2]] },
+  { q:"Name something your partner does that's just like a baby",
+    a:[["Whines / cries",34],["Sleeps a lot",26],["Farts",25],["Messy eater",5],["Snores",5],["Burps",5]] },
+  { q:"Name something you would NOT want a babysitter doing on the job",
+    a:[["Drinking",28],["Sleeping",26],["Smoking",19],["On their phone",9],["Having people over",9],["Doing drugs",9]] },
+  { q:"Name something a baby shouldn't touch, but might try to",
+    a:[["Electrical outlet",33],["Stove / hot things",27],["Poop / dirty diaper",19],["Glasses / phone",10],["Knives",6],["Fire / candles",5]] },
+];
+
+const MULTS = [1,2,3]; // round 1 = x1, round 2 = x2, round 3+ = x3
+const DEFAULT_TARGET = 300;
+
+/* ---------------- Mode detection ---------------- */
+function parseHash(){
+  const h = location.hash.replace(/^#/,'');
+  if(h === 'key') return {mode:'key'};
+  if(h === 'c' || h === 'controller') return {mode:'controller', host:'local'};
+  const m = h.match(/^c=(.+)$/);
+  if(m) return {mode:'controller', host:decodeURIComponent(m[1])};
+  return {mode:'board'};
+}
+let MODE = parseHash().mode;
+
+/* ---------------- Game state ---------------- */
+function freshState(){
+  return {
+    screen:'title',
+    teams:[{name:'Team Pink', score:0},{name:'Team Blue', score:0}],
+    target: DEFAULT_TARGET,
+    roundsPlayed:0,
+    played:[],
+    current:null,
+    revealed:[],
+    strikes:0,
+    pot:0,
+    active:null,     // team index "in control" (visual)
+    winner:null,
+    seq:0,           // bumped on strike, to trigger board X animation
+  };
+}
+let S = freshState();
+
+function curMult(){ return MULTS[Math.min(S.roundsPlayed, MULTS.length-1)]; }
+function roundNum(){ return S.roundsPlayed + 1; }
+function potValue(){ return S.pot * curMult(); }
+
+/* ---------------- Actions (applied on the BOARD only) ---------------- */
+function applyAction(name, args){
+  args = args || {};
+  let fx = null;
+  switch(name){
+    case 'start': S.screen='setup'; break;
+    case 'setTeams':
+      if(args.names){ S.teams[0].name = (args.names[0]||'Team Pink').slice(0,22); S.teams[1].name=(args.names[1]||'Team Blue').slice(0,22); }
+      if(args.target){ S.target = Math.max(1, parseInt(args.target)||DEFAULT_TARGET); }
+      S.screen='menu'; break;
+    case 'menu': S.screen='menu'; break;
+    case 'pick': {
+      const i = args.i;
+      if(i==null || !ROUNDS[i]) break;
+      S.current = i; S.revealed = ROUNDS[i].a.map(()=>false); S.strikes=0; S.pot=0; S.screen='board';
+      break;
+    }
+    case 'reveal': {
+      if(S.current==null) break;
+      const i = args.i; const R = ROUNDS[S.current];
+      if(i==null || !R.a[i]) break;
+      if(!S.revealed[i]){ S.revealed[i]=true; S.pot += R.a[i][1]; fx='ding'; }
+      break;
+    }
+    case 'hide': {
+      if(S.current==null) break;
+      const i=args.i; const R=ROUNDS[S.current];
+      if(R.a[i] && S.revealed[i]){ S.revealed[i]=false; S.pot -= R.a[i][1]; }
+      break;
+    }
+    case 'revealAll': {
+      if(S.current==null) break;
+      const R=ROUNDS[S.current];
+      R.a.forEach((ans,i)=>{ if(!S.revealed[i]){ S.revealed[i]=true; S.pot+=ans[1]; } });
+      fx='ding'; break;
+    }
+    case 'strike': S.strikes = Math.min(3, S.strikes+1); S.seq++; fx='buzzer'; break;
+    case 'resetStrikes': S.strikes=0; break;
+    case 'setActive': S.active = args.team; break;
+    case 'award': {
+      const t = args.team; if(t!==0 && t!==1) break;
+      S.teams[t].score += potValue();
+      if(S.current!=null && !S.played.includes(S.current)) S.played.push(S.current);
+      S.roundsPlayed++;
+      S.pot=0; S.strikes=0; S.active=null; S.current=null; S.revealed=[];
+      if(S.teams[t].score >= S.target){ S.winner=t; S.screen='win'; fx='win'; }
+      else { S.screen='menu'; }
+      break;
+    }
+    case 'adjust': {
+      const t=args.team; if(t!==0&&t!==1) break;
+      S.teams[t].score = Math.max(0, S.teams[t].score + (args.delta||0)); break;
+    }
+    case 'newGame': { const names=[S.teams[0].name,S.teams[1].name], tgt=S.target; S=freshState(); S.teams[0].name=names[0]; S.teams[1].name=names[1]; S.target=tgt; S.screen='menu'; break; }
+    case 'restart': S = freshState(); break;
+  }
+  return fx;
+}
+
+/* ============================================================
+   SYNC LAYER
+   Board = source of truth. Controller sends {t:'action'} and
+   {t:'hello'}; board replies with {t:'state'} snapshots.
+   Transports: BroadcastChannel (same browser) + PeerJS (phone).
+   ============================================================ */
+const Sync = (function(){
+  let bc=null, peer=null, hostConn=null;
+  const conns=[]; // board-side peer connections
+  let onState=null;          // controller: receive snapshot
+  let onAction=null;         // board: receive action
+  let onPresence=null;       // board: controller connected/left
+  let myPeerId=null, onPeerId=null;
+
+  function boardBroadcast(){
+    const m={t:'state', s:S};
+    conns.forEach(c=>{ try{ c.open && c.send(m); }catch(e){} });
+    if(bc){ try{ bc.postMessage(m); }catch(e){} }
+  }
+  function handleBoardMsg(m, replyConn){
+    if(!m) return;
+    if(m.t==='action'){ onAction && onAction(m.name, m.args); }
+    else if(m.t==='hello'){ onPresence && onPresence(true); boardBroadcast(); }
+  }
+
+  return {
+    // ---- BOARD ----
+    initBoard(opts){
+      onAction=opts.onAction; onPresence=opts.onPresence; onPeerId=opts.onPeerId;
+      // local transport
+      try{
+        bc=new BroadcastChannel('babyfeud');
+        bc.onmessage=e=>handleBoardMsg(e.data);
+      }catch(e){}
+      // phone transport (best effort)
+      if(typeof Peer!=='undefined'){
+        try{
+          peer=new Peer(undefined,{debug:0});
+          peer.on('open', id=>{ myPeerId=id; onPeerId && onPeerId(id); });
+          peer.on('connection', conn=>{
+            conns.push(conn);
+            conn.on('open', ()=>{ onPresence && onPresence(true); try{ conn.send({t:'state', s:S}); }catch(e){} });
+            conn.on('data', d=>handleBoardMsg(d, conn));
+            conn.on('close', ()=>{ const k=conns.indexOf(conn); if(k>=0)conns.splice(k,1); onPresence && onPresence(conns.length>0); });
+            conn.on('error', ()=>{});
+          });
+          peer.on('error', err=>{ /* offline / broker issue: game still works locally */ onPeerId && onPeerId(null, err); });
+        }catch(e){ onPeerId && onPeerId(null, e); }
+      } else { onPeerId && onPeerId(null, 'no-lib'); }
+    },
+    pushState(){ boardBroadcast(); },
+
+    // ---- CONTROLLER ----
+    initController(host, cb){
+      onState=cb;
+      if(host==='local'){
+        try{
+          bc=new BroadcastChannel('babyfeud');
+          bc.onmessage=e=>{ if(e.data && e.data.t==='state'){ onState(e.data.s); } };
+          bc.postMessage({t:'hello'});
+        }catch(e){}
+        return;
+      }
+      if(typeof Peer==='undefined'){ cb(null,'no-lib'); return; }
+      try{
+        peer=new Peer(undefined,{debug:0});
+        peer.on('open', ()=>{
+          hostConn=peer.connect(host,{reliable:true});
+          hostConn.on('open', ()=>{ cb(null,'open'); try{ hostConn.send({t:'hello'}); }catch(e){} });
+          hostConn.on('data', d=>{ if(d && d.t==='state') onState(d.s); });
+          hostConn.on('close', ()=>cb(null,'closed'));
+          hostConn.on('error', ()=>cb(null,'err'));
+        });
+        peer.on('error', err=>cb(null,'err:'+(err&&err.type||'')));
+      }catch(e){ cb(null,'err'); }
+    },
+    sendAction(name, args){
+      const m={t:'action', name, args};
+      if(hostConn){ try{ hostConn.open && hostConn.send(m); }catch(e){} }
+      if(bc){ try{ bc.postMessage(m); }catch(e){} }
+    }
+  };
+})();
+
+/* ---------------- Sound (WebAudio, no files) ---------------- */
+const Snd = (function(){
+  let ctx=null, ready=false;
+  function ensure(){ if(!ctx){ try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if(ctx && ctx.state==='suspended') ctx.resume(); ready=!!ctx; }
+  function tone(freq, start, dur, type, gain){
+    if(!ctx) return; const t0=ctx.currentTime+start;
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.type=type||'sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(gain||0.28, t0+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0+dur+0.02);
+  }
+  return {
+    enable(){ ensure(); },
+    ding(){ ensure(); if(!ctx)return; tone(784,0,.13,'triangle',.3); tone(1175,.09,.22,'triangle',.32); },
+    buzzer(){ ensure(); if(!ctx)return; tone(150,0,.5,'sawtooth',.35); tone(98,0,.5,'square',.18); },
+    win(){ ensure(); if(!ctx)return; [523,659,784,1046,1319].forEach((f,i)=>tone(f,i*0.12,.5,'triangle',.3)); }
+  };
+})();
+function playFx(fx){
+  if(fx==='ding') Snd.ding();
+  else if(fx==='buzzer') Snd.buzzer();
+  else if(fx==='win'){ Snd.win(); }
+}
+
+/* ---------------- Board plumbing ---------------- */
+let hasController=false, peerId=null, peerFailed=false;
+
+function boardDo(name, args){
+  const fx=applyAction(name,args);
+  if(name==='strike') showStrikeOverlay();
+  if(name==='award' && S.winner!=null) burstConfetti();
+  playFx(fx);
+  Sync.pushState();
+  render();
+}
+
+/* ---------------- Rendering ---------------- */
+const app = ()=>document.getElementById('app');
+const fxLayer = ()=>document.getElementById('fx');
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function render(){
+  if(MODE==='key'){ renderKey(); return; }
+  if(MODE==='controller'){ renderController(); return; }
+  renderBoard();
+}
+
+/* ---------- BOARD views ---------- */
+function renderBoard(){
+  const el=app();
+  if(S.screen==='title'){
+    el.innerHTML = `
+      <div class="center">
+        <div class="babies">👶🍼🎉</div>
+        <div class="logo logo-xl"><span class="b1">Baby</span> <span class="b2">Feud!</span></div>
+        <div class="sub">A baby-shower Family Feud. Survey says… let's play!</div>
+        <div class="row">
+          <button class="btn gold big" data-act="start">▶ Start Game</button>
+        </div>
+        <div class="status">${pairStatusLine()}</div>
+        <div class="small">Tip: press <b>F</b> for fullscreen • <b>H</b> for help • open <b>#key</b> on your phone for the answer sheet</div>
+      </div>`;
+    return;
+  }
+  if(S.screen==='setup'){
+    el.innerHTML = `
+      <div class="center">
+        <div class="logo logo-sm"><span class="b1">Baby</span> <span class="b2">Feud!</span></div>
+        <h2 style="margin:0;font-family:'Baloo 2'">Set up the teams</h2>
+        <div class="row" style="gap:20px;align-items:flex-end">
+          <div class="field"><label>Team A name</label><input id="ta" maxlength="22" value="${esc(S.teams[0].name)}"></div>
+          <div class="field"><label>Team B name</label><input id="tb" maxlength="22" value="${esc(S.teams[1].name)}"></div>
+          <div class="field"><label>Play to (points)</label><input id="tg" inputmode="numeric" style="width:140px" value="${S.target}"></div>
+        </div>
+        <div class="row">
+          <button class="btn ghost" data-act="restart">◀ Back</button>
+          <button class="btn gold big" data-act="setTeamsLocal">Continue ▶</button>
+        </div>
+        <div class="small">Or set this up from your phone once it's paired.</div>
+        <div class="status">${pairStatusLine()}</div>
+      </div>`;
+    return;
+  }
+  if(S.screen==='menu'){
+    el.innerHTML = `
+      <div class="topbar">
+        <div class="pill">Round <b>&nbsp;${roundNum()}</b>&nbsp; • &nbsp;<span class="mult">×${curMult()}</span>&nbsp; points</div>
+        <div class="logo logo-sm"><span class="b1">Baby</span> <span class="b2">Feud!</span></div>
+        <div class="pill">🎯 Play to ${S.target}</div>
+      </div>
+      <div class="center" style="justify-content:flex-start;gap:16px">
+        <h2 style="margin:6px 0 0;font-family:'Baloo 2'">Pick a question</h2>
+        <div class="scores" style="max-width:760px">
+          ${teamMini(0)}${miniSpacer()}${teamMini(1)}
+        </div>
+        <div class="menu">
+          ${ROUNDS.map((r,i)=>`
+            <button class="qcard ${S.played.includes(i)?'done':''}" data-act="pick" data-arg="${i}">
+              <span class="n">Q${i+1}</span><span>${esc(r.q)}</span>
+            </button>`).join('')}
+        </div>
+        <div class="status">${pairStatusLine()}</div>
+      </div>`;
+    return;
+  }
+  if(S.screen==='board'){
+    const R=ROUNDS[S.current];
+    el.innerHTML = `
+      <div class="topbar">
+        <div class="pill">Round <b>&nbsp;${roundNum()}</b>&nbsp;•&nbsp;<span class="mult">×${curMult()}</span></div>
+        <div class="pill">Q${S.current+1} of ${ROUNDS.length}</div>
+        <div class="pill">🎯 ${S.target}</div>
+      </div>
+      <div class="board">
+        <div class="question">${esc(R.q)}</div>
+        <div class="answers">
+          ${R.a.map((ans,i)=>slotHtml(ans,i)).join('')}
+        </div>
+        <div class="scores">
+          ${teamBox(0)}
+          <div class="potbox">
+            <div class="lbl">POT ×${curMult()}</div>
+            <div class="v">${potValue()}</div>
+            <div class="strikes">${[0,1,2].map(k=>`<div class="s ${k<S.strikes?'on':''}"></div>`).join('')}</div>
+          </div>
+          ${teamBox(1)}
+        </div>
+      </div>
+      <div class="ctrlbar">
+        <button class="btn sm ghost" data-act="strikeLocal">✗ Strike (X)</button>
+        <button class="btn sm ghost" data-act="resetStrikes">Reset strikes</button>
+        <button class="btn sm ghost" data-act="revealAll">Reveal all (R)</button>
+        <button class="btn sm pink" data-act="awardLocal" data-arg="0">Award ▸ ${esc(S.teams[0].name)}</button>
+        <button class="btn sm blue" data-act="awardLocal" data-arg="1">Award ▸ ${esc(S.teams[1].name)}</button>
+        <button class="btn sm ghost" data-act="menu">Menu (M)</button>
+      </div>`;
+    return;
+  }
+  if(S.screen==='win'){
+    const w=S.teams[S.winner];
+    el.innerHTML = `
+      <div class="center">
+        <div class="babies">🎉🏆🍼</div>
+        <div class="sub">Survey says… the winner is</div>
+        <div class="logo logo-xl" style="font-size:clamp(40px,10vw,120px)"><span class="${S.winner===0?'b1':'b2'}">${esc(w.name)}</span></div>
+        <div style="font-family:'Baloo 2';font-weight:800;font-size:clamp(28px,6vw,60px)">${w.score} points!</div>
+        <div class="row">
+          <button class="btn ghost" data-act="menu">Back to questions</button>
+          <button class="btn gold big" data-act="newGame">Play again (same teams)</button>
+        </div>
+      </div>`;
+    return;
+  }
+}
+
+function slotHtml(ans,i){
+  const rev=S.revealed[i];
+  return `<div class="slot ${rev?'revealed':'hidden click'}" data-act="reveal" data-arg="${i}">
+    <div class="num">${rev?(i+1):`<span class="num-dot">${i+1}</span>`}</div>
+    <div class="txt">${esc(ans[0])}</div>
+    <div class="pts">${ans[1]}</div>
+  </div>`;
+}
+function teamBox(t){
+  const tm=S.teams[t];
+  return `<div class="team ${t===0?'a':'b'} ${S.active===t?'active':''}">
+    ${S.active===t?'<div class="tag">IN CONTROL</div>':''}
+    <div class="name">${esc(tm.name)}</div>
+    <div class="val">${tm.score}</div>
+  </div>`;
+}
+function teamMini(t){
+  const tm=S.teams[t];
+  return `<div class="team ${t===0?'a':'b'}"><div class="name">${esc(tm.name)}</div><div class="val" style="font-size:clamp(24px,5vw,44px)">${tm.score}</div></div>`;
+}
+function miniSpacer(){ return `<div class="potbox"><div class="lbl">ROUND</div><div class="v" style="font-size:clamp(22px,4vw,36px)">${roundNum()}</div></div>`; }
+
+function pairStatusLine(){
+  if(MODE!=='board') return '';
+  if(hasController) return `<span class="dot ok"></span> Phone controller connected`;
+  if(peerFailed) return `<span class="dot no"></span> Phone pairing offline — use keyboard / on-screen controls, or open <b>#key</b> on your phone`;
+  return `<span class="dot"></span> Ready to pair a phone (see the game board), or control from this laptop`;
+}
+
+/* pairing panel (rendered on board during play-ish screens as a floating helper only on title/menu) */
+function renderPairingInto(container){
+  if(MODE!=='board') return;
+  if(hasController || peerFailed || !peerId) return;
+  const url = location.href.split('#')[0] + '#c=' + encodeURIComponent(peerId);
+  const box=document.createElement('div');
+  box.className='pair';
+  box.innerHTML=`<div class="qr" id="qrbox"></div>
+    <div class="txt2"><b>Control from your phone</b><br>Scan this with your phone camera to open the private host remote.<br><span class="small">(needs the laptop & phone on WiFi)</span></div>`;
+  container.appendChild(box);
+  try{ new QRCode(box.querySelector('#qrbox'), {text:url, width:132, height:132, colorDark:'#0b1e4a', colorLight:'#ffffff', correctLevel:QRCode.CorrectLevel.M}); }catch(e){}
+}
+
+/* After each board render, sprinkle the pairing helper on title/menu screens */
+const _renderBoard = renderBoard;
+renderBoard = function(){
+  _renderBoard();
+  if((S.screen==='title'||S.screen==='menu'||S.screen==='setup')){
+    const center=app().querySelector('.center');
+    if(center) renderPairingInto(center);
+  }
+};
+
+/* ---------- CONTROLLER views ---------- */
+function renderController(){
+  const el=app();
+  const connbadge = ctlConnBadge();
+  let body='';
+  if(S.screen==='title'){
+    body=`<div class="card"><div class="cq">Ready to play Baby Feud?</div>
+      <button class="btn gold big" style="width:100%" data-act="c-start">▶ Start Game</button></div>`;
+  } else if(S.screen==='setup'){
+    body=`<div class="card"><h3>Team setup</h3>
+      <div class="field" style="margin-bottom:10px"><label>Team A</label><input id="cta" maxlength="22" value="${esc(S.teams[0].name)}" style="width:100%"></div>
+      <div class="field" style="margin-bottom:10px"><label>Team B</label><input id="ctb" maxlength="22" value="${esc(S.teams[1].name)}" style="width:100%"></div>
+      <div class="field" style="margin-bottom:14px"><label>Play to (points)</label><input id="ctg" inputmode="numeric" value="${S.target}" style="width:120px"></div>
+      <button class="btn gold big" style="width:100%" data-act="c-setTeams">Continue ▶</button></div>`;
+  } else if(S.screen==='menu'){
+    body=`<div class="card"><h3>Scores • Round ${roundNum()} • ×${curMult()}</h3>
+        ${ctlScoreLine(0)}${ctlScoreLine(1)}</div>
+      <div class="card"><h3>Pick a question</h3><div class="qlist">
+        ${ROUNDS.map((r,i)=>`<button class="${S.played.includes(i)?'done':''}" data-act="c-pick" data-arg="${i}"><span class="qn">Q${i+1}</span><span>${esc(r.q)}</span></button>`).join('')}
+      </div></div>`;
+  } else if(S.screen==='board'){
+    const R=ROUNDS[S.current];
+    body=`
+      <div class="card">
+        <div class="cq">Q${S.current+1}. ${esc(R.q)}</div>
+        <div class="grid2" style="margin-bottom:12px">
+          <div class="big-award" style="background:rgba(0,0,0,.2);border-radius:12px">POT ×${curMult()}<br><span style="font-family:'Baloo 2';font-size:26px;color:var(--gold)">${potValue()}</span></div>
+          <button class="btn ${S.strikes>=3?'':'ghost'}" data-act="c-strike" style="font-size:18px;background:${S.strikes>0?'rgba(255,77,77,.25)':''}">✗ Strike &nbsp;${'❌'.repeat(S.strikes)||'( 0 )'}</button>
+        </div>
+        <div class="hintbar">Tap an answer to reveal • tap again to hide</div>
+        ${R.a.map((ans,i)=>`
+          <div class="ans-row ${S.revealed[i]?'rev':''}" data-act="c-toggle" data-arg="${i}">
+            <div class="an">${i+1}</div><div class="at">${esc(ans[0])}</div><div class="ap">${ans[1]}</div>
+          </div>`).join('')}
+        <div class="grid2" style="margin-top:12px">
+          <button class="btn ghost sm" data-act="c-resetStrikes">Reset strikes</button>
+          <button class="btn ghost sm" data-act="c-revealAll">Reveal all</button>
+        </div>
+      </div>
+      <div class="card"><h3>Award the pot (×${curMult()} = ${potValue()} pts)</h3>
+        <div class="grid2">
+          <button class="btn pink big-award" data-act="c-award" data-arg="0">${esc(S.teams[0].name)}<br><span class="small">gets ${potValue()}</span></button>
+          <button class="btn blue big-award" data-act="c-award" data-arg="1">${esc(S.teams[1].name)}<br><span class="small">gets ${potValue()}</span></button>
+        </div>
+      </div>
+      <div class="card"><h3>Scores</h3>${ctlScoreLine(0)}${ctlScoreLine(1)}
+        <div class="grid2" style="margin-top:10px">
+          <button class="btn ghost sm" data-act="c-active" data-arg="0">${S.active===0?'✓ ':''}${esc(S.teams[0].name)} in control</button>
+          <button class="btn ghost sm" data-act="c-active" data-arg="1">${S.active===1?'✓ ':''}${esc(S.teams[1].name)} in control</button>
+        </div>
+        <button class="btn ghost sm" style="width:100%;margin-top:10px" data-act="c-menu">◀ Back to questions</button>
+      </div>`;
+  } else if(S.screen==='win'){
+    const w=S.teams[S.winner];
+    body=`<div class="card" style="text-align:center">
+      <div style="font-size:40px">🏆</div>
+      <div class="cq">${esc(w.name)} wins with ${w.score}!</div>
+      <button class="btn gold big" style="width:100%;margin-top:8px" data-act="c-newGame">Play again (same teams)</button>
+      <button class="btn ghost sm" style="width:100%;margin-top:8px" data-act="c-menu">Back to questions</button>
+    </div>`;
+  }
+  el.innerHTML = `
+    <div class="ctl">
+      <div class="ctl-top">
+        <div class="ctl-title"><span class="b1">Baby</span> <span class="b2">Feud</span> · Host</div>
+        ${connbadge}
+      </div>
+      ${body}
+      <div class="hintbar">This phone is the private remote. The answers here stay off the TV until you reveal them.</div>
+    </div>`;
+}
+function ctlScoreLine(t){
+  const tm=S.teams[t];
+  return `<div class="scoreline">
+    <div class="nm" style="color:${t===0?'var(--pink)':'var(--blue)'}">${esc(tm.name)}</div>
+    <div class="sv">${tm.score}</div>
+    <div class="stepper">
+      <button data-act="c-adjust" data-arg="${t}:-5">−</button>
+      <button data-act="c-adjust" data-arg="${t}:5">+</button>
+    </div>
+  </div>`;
+}
+let ctlConn='connecting';
+function ctlConnBadge(){
+  const map={connecting:['dot','Connecting…'], open:['dot ok','Connected'], local:['dot ok','Local'], closed:['dot no','Link lost'], err:['dot no','No link'], nolib:['dot no','Offline']};
+  const [cls,txt]=map[ctlConn]||map.connecting;
+  return `<div class="status"><span class="${cls}"></span>${txt}</div>`;
+}
+
+/* ---------- ANSWER KEY view ---------- */
+function renderKey(){
+  app().innerHTML = `
+    <div class="keywrap">
+      <button class="btn gold sm print" onclick="window.print()">🖨 Print</button>
+      <div class="logo logo-sm" style="text-align:center;margin-bottom:6px"><span class="b1">Baby</span> <span class="b2">Feud!</span> — Answer Key</div>
+      <div class="small" style="text-align:center;margin-bottom:18px">Host cheat sheet. Keep this on your phone or print it. The audience never sees this page.</div>
+      ${ROUNDS.map((r,i)=>`
+        <div class="keyq">
+          <h3><span class="qn">Q${i+1}.</span> ${esc(r.q)}</h3>
+          <ol>${r.a.map(a=>`<li><span>${esc(a[0])}</span><span class="p">${a[1]}</span></li>`).join('')}</ol>
+        </div>`).join('')}
+    </div>`;
+}
+
+/* ---------------- Board: strike overlay + confetti ---------------- */
+function showStrikeOverlay(){
+  const x=document.createElement('div'); x.className='overlay-x';
+  x.innerHTML='<div class="xx">✗</div>';
+  fxLayer().appendChild(x);
+  setTimeout(()=>x.remove(), 850);
+}
+function burstConfetti(){
+  const c=document.createElement('div'); c.className='confetti';
+  const emo=['🎉','🍼','👶','🎈','⭐','💗','💙'];
+  for(let i=0;i<44;i++){
+    const s=document.createElement('span');
+    s.textContent=emo[i%emo.length];
+    s.style.left=Math.random()*100+'vw';
+    s.style.animationDuration=(2.6+Math.random()*2.4)+'s';
+    s.style.animationDelay=(Math.random()*0.8)+'s';
+    s.style.fontSize=(18+Math.random()*22)+'px';
+    c.appendChild(s);
+  }
+  fxLayer().appendChild(c);
+  setTimeout(()=>c.remove(), 6000);
+}
+
+/* ---------------- Help overlay (board) ---------------- */
+function toggleHelp(){
+  const ex=document.getElementById('helpmodal'); if(ex){ ex.remove(); return; }
+  const m=document.createElement('div'); m.className='modal'; m.id='helpmodal';
+  m.innerHTML=`<div class="box">
+    <h2>Host keyboard controls</h2>
+    <div class="klist">
+      <div><span class="kbd">1</span>–<span class="kbd">8</span> Reveal that answer</div>
+      <div><span class="kbd">X</span> Add a strike &nbsp; <span class="kbd">Z</span> Reset strikes</div>
+      <div><span class="kbd">R</span> Reveal all remaining</div>
+      <div><span class="kbd">[</span> Award pot ▸ ${esc(S.teams[0].name)} &nbsp; <span class="kbd">]</span> Award ▸ ${esc(S.teams[1].name)}</div>
+      <div><span class="kbd">M</span> Back to question menu</div>
+      <div><span class="kbd">F</span> Fullscreen &nbsp; <span class="kbd">H</span> This help</div>
+    </div>
+    <p class="small" style="margin-top:16px">No phone? You can run the whole game from here. Open <b>#key</b> on any device for the answer list.</p>
+    <div class="row" style="margin-top:10px"><button class="btn gold" onclick="document.getElementById('helpmodal').remove()">Got it</button></div>
+  </div>`;
+  m.addEventListener('click',e=>{ if(e.target===m) m.remove(); });
+  fxLayer().appendChild(m);
+}
+
+/* ---------------- Event wiring ---------------- */
+document.addEventListener('click', e=>{
+  const t=e.target.closest('[data-act]'); if(!t) return;
+  const act=t.getAttribute('data-act'); const arg=t.getAttribute('data-arg');
+  Snd.enable();
+  // ----- Board local controls -----
+  if(MODE==='board'){
+    switch(act){
+      case 'start': boardDo('start'); break;
+      case 'restart': boardDo('restart'); break;
+      case 'setTeamsLocal': {
+        const names=[val('ta'),val('tb')]; const target=val('tg'); boardDo('setTeams',{names,target}); break; }
+      case 'pick': boardDo('pick',{i:+arg}); break;
+      case 'reveal': boardDo('reveal',{i:+arg}); break;
+      case 'strikeLocal': boardDo('strike'); break;
+      case 'resetStrikes': boardDo('resetStrikes'); break;
+      case 'revealAll': boardDo('revealAll'); break;
+      case 'awardLocal': boardDo('award',{team:+arg}); break;
+      case 'menu': boardDo('menu'); break;
+      case 'newGame': boardDo('newGame'); break;
+    }
+    return;
+  }
+  // ----- Controller: send actions to board -----
+  if(MODE==='controller'){
+    switch(act){
+      case 'c-start': send('start'); break;
+      case 'c-setTeams': send('setTeams',{names:[val('cta'),val('ctb')], target:val('ctg')}); break;
+      case 'c-pick': send('pick',{i:+arg}); break;
+      case 'c-toggle': send(S.revealed[+arg]?'hide':'reveal',{i:+arg}); break;
+      case 'c-strike': send('strike'); if(navigator.vibrate)navigator.vibrate(60); break;
+      case 'c-resetStrikes': send('resetStrikes'); break;
+      case 'c-revealAll': send('revealAll'); break;
+      case 'c-award': send('award',{team:+arg}); break;
+      case 'c-active': send('setActive',{team:+arg}); break;
+      case 'c-adjust': { const [tm,d]=arg.split(':'); send('adjust',{team:+tm, delta:+d}); break; }
+      case 'c-menu': send('menu'); break;
+      case 'c-newGame': send('newGame'); break;
+    }
+  }
+});
+function val(id){ const el=document.getElementById(id); return el?el.value.trim():''; }
+function send(name,args){ Sync.sendAction(name,args); }
+
+/* keyboard (board only) */
+document.addEventListener('keydown', e=>{
+  if(MODE!=='board') return;
+  if(e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+  Snd.enable();
+  const k=e.key;
+  if(k==='f'||k==='F'){ toggleFullscreen(); return; }
+  if(k==='h'||k==='H'||k==='?'){ toggleHelp(); return; }
+  if(S.screen==='board'){
+    if(k>='1'&&k<='9'){ const i=+k-1; if(ROUNDS[S.current].a[i]) boardDo('reveal',{i}); return; }
+    if(k==='x'||k==='X'){ boardDo('strike'); return; }
+    if(k==='z'||k==='Z'){ boardDo('resetStrikes'); return; }
+    if(k==='r'||k==='R'){ boardDo('revealAll'); return; }
+    if(k==='['){ boardDo('award',{team:0}); return; }
+    if(k===']'){ boardDo('award',{team:1}); return; }
+    if(k==='m'||k==='M'){ boardDo('menu'); return; }
+  }
+  if(S.screen==='title' && (k==='Enter'||k===' ')){ boardDo('start'); }
+  if(S.screen==='win' && (k==='Enter')){ boardDo('newGame'); }
+});
+function toggleFullscreen(){
+  try{
+    if(!document.fullscreenElement){
+      const req=document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen;
+      if(req){ const p=req.call(document.documentElement); if(p&&p.catch) p.catch(()=>{}); }
+    } else {
+      const ex=document.exitFullscreen||document.webkitExitFullscreen;
+      if(ex) ex.call(document);
+    }
+  }catch(e){}
+}
+
+/* ---------------- Boot ---------------- */
+function boot(){
+  if(MODE==='board'){
+    // enable audio on first interaction with the board
+    const wake=()=>{ Snd.enable(); window.removeEventListener('pointerdown',wake); window.removeEventListener('keydown',wake); };
+    window.addEventListener('pointerdown',wake); window.addEventListener('keydown',wake);
+    Sync.initBoard({
+      onAction:(name,args)=>{ boardDo(name,args); },
+      onPresence:(present)=>{ const was=hasController; hasController=present; if(was!==present) render(); },
+      onPeerId:(id,err)=>{ if(id){ peerId=id; render(); } else { peerFailed=true; render(); } }
+    });
+    render();
+  } else if(MODE==='controller'){
+    const {host}=parseHash();
+    ctlConn = (host==='local')?'local':'connecting';
+    Sync.initController(host,(st,status)=>{
+      if(st){ S=st; }
+      if(status==='open') ctlConn='open';
+      else if(status==='closed') ctlConn='closed';
+      else if(status==='no-lib') ctlConn='nolib';
+      else if(status && status.indexOf('err')===0) ctlConn='err';
+      render();
+    });
+    render();
+  } else {
+    render();
+  }
+}
+window.addEventListener('hashchange', ()=>{ MODE=parseHash().mode; location.reload(); });
+boot();
+</script>
+</body>
+</html>
