@@ -73,6 +73,7 @@ button{font-family:inherit; cursor:pointer}
 .board{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:6px 18px 12px; gap:18px}
 .question{font-family:"Baloo 2",sans-serif; font-weight:800; text-align:center; line-height:1.1;
   font-size:clamp(24px,4.6vw,54px); max-width:1100px; text-shadow:0 3px 0 rgba(0,0,0,.25)}
+.question.qhidden{color:var(--dim); opacity:.65; text-shadow:none}
 .answers{width:min(1000px,94vw); display:grid; gap:12px}
 .slot{position:relative; height:clamp(52px,8.4vh,86px); border-radius:16px; overflow:hidden;
   background:linear-gradient(180deg,var(--panel-hi),var(--panel)); box-shadow:inset 0 0 0 2px rgba(255,255,255,.10), var(--shadow);
@@ -295,6 +296,7 @@ function freshState(){
     active:null,     // team index "in control" (visual)
     winner:null,
     tiebreak:false,  // sudden-death face-off (only the #1 answer shows)
+    showQ:true,      // is the question text shown on the TV board? (host toggles from phone)
     seq:0,           // bumped on strike, to trigger board X animation
   };
 }
@@ -318,10 +320,30 @@ function applyAction(name, args){
     case 'pick': {
       const i = args.i;
       if(i==null || !ROUNDS[i]) break;
-      S.tiebreak=false;
+      S.tiebreak=false; S.showQ=false;   // start with the question hidden on the TV
       S.current = i; S.revealed = ROUNDS[i].a.map(()=>false); S.strikes=0; S.pot=0; S.screen='board';
       break;
     }
+    case 'randomRound': {   // start a normal round on a random unplayed question (question hidden)
+      const unplayed = ROUNDS.map((_,i)=>i).filter(i=>!S.played.includes(i));
+      const pool = unplayed.length ? unplayed : ROUNDS.map((_,i)=>i);
+      const i = pool[Math.floor(Math.random()*pool.length)];
+      S.tiebreak=false; S.showQ=false;
+      S.current=i; S.revealed=ROUNDS[i].a.map(()=>false); S.strikes=0; S.pot=0; S.screen='board';
+      break;
+    }
+    case 'cycle': {   // swap the current round to a different random unplayed question
+      if(S.current==null || S.screen!=='board') break;
+      const unplayed = ROUNDS.map((_,i)=>i).filter(i=>!S.played.includes(i) && i!==S.current);
+      const pool = unplayed.length ? unplayed : ROUNDS.map((_,i)=>i).filter(i=>i!==S.current);
+      if(!pool.length) break;
+      const i = pool[Math.floor(Math.random()*pool.length)];
+      S.current=i; S.showQ=false;
+      S.revealed = S.tiebreak ? [false] : ROUNDS[i].a.map(()=>false);
+      S.strikes=0; S.pot=0;
+      break;
+    }
+    case 'toggleQuestion': S.showQ = !S.showQ; break;
     case 'tiebreak': {   // sudden-death face-off: a question with only its #1 answer
       const unplayed = ROUNDS.map((_,i)=>i).filter(i=>!S.played.includes(i));
       const pool = unplayed.length ? unplayed : ROUNDS.map((_,i)=>i);
@@ -599,18 +621,17 @@ function renderBoard(){
         <div class="logo logo-sm"><span class="b1">Baby</span> <span class="b2">Feud!</span></div>
         <div class="pill">🎯 Play to ${S.target}</div>
       </div>
-      <div class="center" style="justify-content:flex-start;gap:16px">
-        <h2 style="margin:6px 0 0;font-family:'Baloo 2'">Pick a question</h2>
+      <div class="center" style="gap:22px">
+        <div class="babies" style="font-size:clamp(30px,7vw,58px)">🍼</div>
+        <h2 style="margin:0;font-family:'Baloo 2'">Ready for Round ${roundNum()}</h2>
         <div class="scores" style="max-width:760px">
           ${teamMini(0)}${miniSpacer()}${teamMini(1)}
         </div>
-        <div class="menu">
-          ${ROUNDS.map((r,i)=>`
-            <button class="qcard ${S.played.includes(i)?'done':''}" data-act="pick" data-arg="${i}">
-              <span class="n">Q${i+1}</span><span>${esc(r.q)}</span>
-            </button>`).join('')}
+        <div class="sub">Questions stay hidden on the TV — it's a surprise! Start when everyone's ready; the host reads it from their phone.</div>
+        <div class="row">
+          <button class="btn gold big" data-act="randomRoundLocal">▶ Start Round</button>
+          <button class="btn ghost" data-act="tiebreakLocal">🏁 Tie-Breaker</button>
         </div>
-        <button class="btn gold sm" data-act="tiebreakLocal" style="margin-top:2px">🏁 Sudden-Death Tie-Breaker</button>
         <div class="status">${pairStatusLine()}</div>
       </div>`;
     return;
@@ -652,11 +673,11 @@ function renderBoard(){
     el.innerHTML = `
       <div class="topbar">
         <div class="pill">Round <b>&nbsp;${roundNum()}</b>&nbsp;•&nbsp;<span class="mult">×${curMult()}</span></div>
-        <div class="pill">Q${S.current+1} of ${ROUNDS.length}</div>
+        <div class="pill">${S.showQ ? `Q${S.current+1} of ${ROUNDS.length}` : 'Question hidden'}</div>
         <div class="pill">🎯 ${S.target}</div>
       </div>
       <div class="board">
-        <div class="question">${esc(R.q)}</div>
+        ${S.showQ ? `<div class="question">${esc(R.q)}</div>` : `<div class="question qhidden">🎤 Listen to the host…</div>`}
         <div class="answers">
           ${R.a.map((ans,i)=>slotHtml(ans,i)).join('')}
         </div>
@@ -781,11 +802,14 @@ function renderController(){
   } else if(S.screen==='menu'){
     body=`<div class="card"><h3>Scores • Round ${roundNum()} • ×${curMult()}</h3>
         ${ctlScoreLine(0)}${ctlScoreLine(1)}</div>
-      <div class="card"><h3>Pick a question</h3><div class="qlist">
-        ${ROUNDS.map((r,i)=>`<button class="${S.played.includes(i)?'done':''}" data-act="c-pick" data-arg="${i}"><span class="qn">Q${i+1}</span><span>${esc(r.q)}</span></button>`).join('')}
+      <div class="card"><h3>Start the next round</h3>
+        <button class="btn gold big" style="width:100%;margin-bottom:10px" data-act="c-randomRound">🎲 Start Random Round</button>
+        <button class="btn ghost" style="width:100%" data-act="c-tiebreak">🏁 Sudden-Death Tie-Breaker</button>
+        <div class="hintbar" style="margin-top:8px">The question stays hidden on the TV until you show it.</div>
       </div>
-      <button class="btn gold" style="width:100%;margin-top:4px" data-act="c-tiebreak">🏁 Sudden-Death Tie-Breaker</button>
-      </div>`;
+      <div class="card"><h3>…or pick a specific question (private)</h3><div class="qlist">
+        ${ROUNDS.map((r,i)=>`<button class="${S.played.includes(i)?'done':''}" data-act="c-pick" data-arg="${i}"><span class="qn">Q${i+1}</span><span>${esc(r.q)}</span></button>`).join('')}
+      </div></div>`;
   } else if(S.screen==='board' && S.tiebreak){
     const R=ROUNDS[S.current];
     body=`
@@ -813,6 +837,10 @@ function renderController(){
     body=`
       <div class="card">
         <div class="cq">Q${S.current+1}. ${esc(R.q)}</div>
+        <div class="grid2" style="margin-bottom:12px">
+          <button class="btn ${S.showQ?'gold':'ghost'}" data-act="c-toggleQuestion">${S.showQ?'🙈 Hide question on TV':'👁 Show question on TV'}</button>
+          <button class="btn ghost" data-act="c-cycle">🔀 Cycle question</button>
+        </div>
         <div class="grid2" style="margin-bottom:12px">
           <div class="big-award" style="background:rgba(0,0,0,.2);border-radius:12px">POT ×${curMult()}<br><span style="font-family:'Baloo 2';font-size:26px;color:var(--gold)">${potValue()}</span></div>
           <button class="btn ${S.strikes>=3?'':'ghost'}" data-act="c-strike" style="font-size:18px;background:${S.strikes>0?'rgba(255,77,77,.25)':''}">✗ Strike &nbsp;${'❌'.repeat(S.strikes)||'( 0 )'}</button>
@@ -926,7 +954,8 @@ function toggleHelp(){
       <div><span class="kbd">X</span> Add a strike &nbsp; <span class="kbd">Z</span> Reset strikes</div>
       <div><span class="kbd">R</span> Reveal all remaining</div>
       <div><span class="kbd">[</span> Award pot ▸ ${esc(S.teams[0].name)} &nbsp; <span class="kbd">]</span> Award ▸ ${esc(S.teams[1].name)}</div>
-      <div><span class="kbd">M</span> Back to question menu</div>
+      <div><span class="kbd">Space</span> Start round (random question) &nbsp; <span class="kbd">M</span> Menu</div>
+      <div><span class="kbd">Q</span> Show/hide question on TV &nbsp; <span class="kbd">C</span> Cycle to another question</div>
       <div><span class="kbd">T</span> Start a sudden-death tie-breaker (from the menu)</div>
       <div><span class="kbd">F</span> Fullscreen &nbsp; <span class="kbd">H</span> This help</div>
     </div>
@@ -955,6 +984,9 @@ document.addEventListener('click', e=>{
       case 'resetStrikes': boardDo('resetStrikes'); break;
       case 'revealAll': boardDo('revealAll'); break;
       case 'awardLocal': boardDo('award',{team:+arg}); break;
+      case 'randomRoundLocal': boardDo('randomRound'); break;
+      case 'cycleLocal': boardDo('cycle'); break;
+      case 'toggleQuestionLocal': boardDo('toggleQuestion'); break;
       case 'tiebreakLocal': boardDo('tiebreak'); break;
       case 'declareWinLocal': boardDo('declareWin',{team:+arg}); break;
       case 'menu': boardDo('menu'); break;
@@ -973,6 +1005,9 @@ document.addEventListener('click', e=>{
       case 'c-resetStrikes': send('resetStrikes'); break;
       case 'c-revealAll': send('revealAll'); break;
       case 'c-award': send('award',{team:+arg}); break;
+      case 'c-randomRound': send('randomRound'); break;
+      case 'c-cycle': send('cycle'); break;
+      case 'c-toggleQuestion': send('toggleQuestion'); break;
       case 'c-tiebreak': send('tiebreak'); break;
       case 'c-declareWin': send('declareWin',{team:+arg}); break;
       case 'c-active': send('setActive',{team:+arg}); break;
@@ -1000,9 +1035,12 @@ document.addEventListener('keydown', e=>{
     if(k==='r'||k==='R'){ boardDo('revealAll'); return; }
     if(k==='['){ boardDo(S.tiebreak?'declareWin':'award',{team:0}); return; }
     if(k===']'){ boardDo(S.tiebreak?'declareWin':'award',{team:1}); return; }
+    if(k==='q'||k==='Q'){ if(!S.tiebreak) boardDo('toggleQuestion'); return; }
+    if(k==='c'||k==='C'){ boardDo('cycle'); return; }
     if(k==='m'||k==='M'){ boardDo('menu'); return; }
   }
   if(S.screen==='menu' && (k==='t'||k==='T')){ boardDo('tiebreak'); return; }
+  if(S.screen==='menu' && (k===' '||k==='Enter')){ boardDo('randomRound'); return; }
   if(S.screen==='title' && (k==='Enter'||k===' ')){ boardDo('start'); }
   if(S.screen==='win' && (k==='Enter')){ boardDo('newGame'); }
 });
